@@ -16,7 +16,7 @@
    .vscode/
 
    # Node.js
-   scripts/node_modules/
+   scripts/node_modules
    scripts/npm-debug.log
    scripts/yarn-error.log
    scripts/package-lock.json
