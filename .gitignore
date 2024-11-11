@@ -10,26 +10,16 @@
 
    # script
    archive/
-   archive/versions/
-
-   # IntelliJ
-   .idea/
-   *.iml
-   *.ipr
-   *.iws
-
-   # Eclipse
-   .project
-   .classpath
-   .settings/
+   archive/versions
 
    # VS Code
    .vscode/
 
    # Node.js
-   node_modules/
-   npm-debug.log
-   yarn-error.log
+   scripts/node_modules/
+   scripts/npm-debug.log
+   scripts/yarn-error.log
+   scripts/package-lock.json
 
    # Logs
    *.log
