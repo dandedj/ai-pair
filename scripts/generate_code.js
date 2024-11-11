@@ -143,8 +143,9 @@ function summarizePassedTests() {
 (async () => {
     const chatGPTClient = new ChatGPTClient(process.env.OPENAI_API_KEY);
 
-    // Clear the tmp directory at the start of each run
+    // Clear the tmp and versions directories at the start of each run
     clearDirectory(path.resolve(__dirname, '../build/tmp'));
+    clearDirectory(path.resolve(__dirname, '../archive/versions'));
 
     // Collect Java files once and use them throughout
     const javaFiles = collectJavaFiles([
