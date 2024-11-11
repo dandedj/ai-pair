@@ -1,0 +1,32 @@
+> Task :clean
+> Task :compileJava
+> Task :processResources NO-SOURCE
+> Task :classes
+> Task :compileTestJava
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+> Task :test
+
+BUILD SUCCESSFUL in 729ms
+4 actionable tasks: 4 executed
+Test: UtilityTest.testGetRadius - PASSED
+Test passed successfully.
+
+Test: UtilityTest.testCalculateCircumference - PASSED
+Test passed successfully.
+
+Test: UtilityTest.testConstructor - PASSED
+Test passed successfully.
+
+Test: org.example.AppTest.testCalculate - PASSED
+Test passed successfully.
+
+Test: org.example.AppTest.testExtractGEO - PASSED
+Test passed successfully.
+
+Test: org.example.AppTest.testGetGreetingWithGeo - PASSED
+Test passed successfully.
+
+Test: org.example.AppTest.testGetGreeting - PASSED
+Test passed successfully.
+

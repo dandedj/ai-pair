@@ -1,0 +1,36 @@
+   # Java
+   *.class
+   *.jar
+   *.war
+   *.ear
+
+   # Gradle
+   .gradle/
+   build/
+
+   # IntelliJ
+   .idea/
+   *.iml
+   *.ipr
+   *.iws
+
+   # Eclipse
+   .project
+   .classpath
+   .settings/
+
+   # VS Code
+   .vscode/
+
+   # Node.js
+   node_modules/
+   npm-debug.log
+   yarn-error.log
+
+   # Logs
+   *.log
+
+   # Temporary files
+   tmp/
+
+   .env
