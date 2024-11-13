@@ -2,6 +2,10 @@
 
 An exploration of using AI to act as a pair programmer for software development. 
 
+Anyone who has used AI to do software development realizes that the current process involves many iterations of: generate code .. try to compile code .. try to run the code .. get errors .. feed the data back to the AI .. repeat. 
+
+This AI pair programmer automates that process to improve the speed of development. 
+
 ### How it works
 
 Start the AI pair programmer by running the following command:
@@ -36,6 +40,9 @@ has a problem. In many cases the pair programmer will suggest a change to the te
 
 #### Object creation
 The pair programmer will create objects that you describe. For example, if you want a new class then you should describe the class and the pair programmer will create the class for you. To ensure that the object is created in the appropriate class, be sure to add a detailed import
+
+#### Editing the code directly
+On each iteration, the current version of the code is sent to the pair programmer for context. If the pair programmer is not going in the right direction, you can edit the code directly and regenerate. 
 
 #### Code comments
 The pair programmer will read comments that you put in the test cases to inform the code
