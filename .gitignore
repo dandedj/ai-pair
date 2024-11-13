@@ -32,11 +32,14 @@ ai_pair.node_repl_history
 .env
 
 # Build directories
-sample_project/build/
-sample_project/dist/
-sample_project/tmp/
-sample_project/out/
-sample_project/.gradle/
+sample_java_gradle_project/build/
+sample_java_gradle_project/dist/
+sample_java_gradle_project/tmp/
+sample_java_gradle_project/out/
+sample_java_gradle_project/.gradle/
+sample_java_gradle_project/tmp/
+sample_java_gradle_project/.gradle/
+sample_java_gradle_project/build/
 
 # IDEs and editors
 .idea/
@@ -52,10 +55,6 @@ Thumbs.db
 *.war
 *.ear
 *.iml
-
-# Gradle
-sample_project/.gradle/
-sample_project/build/
 
 # VS Code
 .vscode/
