@@ -8,6 +8,20 @@ This AI pair programmer automates that process to improve the speed of developme
 
 ### How it works
 
+#### Pair Setup
+
+1. Install node.js
+2. Install dependencies: `npm install`
+3. Add API_KEYs to the ai_pair/.env file for the model types that you intend on running
+
+#### Sample project setup
+
+1. Install java
+2. Install gradle
+3. run `gradle build` to build the project (it should fail with compile errors, but not missing dependencies)
+
+#### Running the pair programmer
+
 Start the AI pair programmer by running the following command:
 ```
 node AIPair.js <root of project to be edited> [model name (optional)]
@@ -61,5 +75,18 @@ then you should add a comment like:
 ```
 // Create a function that can take any string and add "extra" to the end
 ```
-or add additional usescases. 
+or add additional use-cases. 
+
+### Challenges / Future Work
+
+#### Supported models
+As of now, only gpt-40, gpt-4o-mini and claude-3-5-sonnet(+new) are supported. 
+
+#### Limited context window
+
+Various models support different context windows. The pair programmer is limited by the context window of the model. In general, the smaller models support a large context window. The token counts and percentage of limits are shown on each iteration. 
+
+#### Additional languages and build systems
+
+Java with gradle (kotlin) are the only supported languages and build systems. 
 
