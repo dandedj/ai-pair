@@ -46,6 +46,13 @@ function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
         const filePath = codeBlocks[i].trim();
         const fileContent = codeBlocks[i + 1].trim();
         const fullPath = path.resolve(rootDir, filePath);
+        const tempFilePath = path.resolve(tmpDir, filePath);
+
+        // ensure the temp file directory exists
+        ensureDirectoryExists(path.dirname(tempFilePath));
+
+        // write the file content to the temp file
+        fs.writeFileSync(tempFilePath, fileContent);
 
         // Ensure the directory exists
         const dirName = path.dirname(fullPath);
@@ -83,6 +90,9 @@ function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
 
         // Write the file content
         fs.writeFileSync(fullPath, fileContent);
+
+        // delete the temp file
+        fs.unlinkSync(tempFilePath);
     }
 }
 

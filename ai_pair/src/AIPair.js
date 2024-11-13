@@ -142,7 +142,7 @@ function watchTestDirectory(client, buildGradleContent, accumulatedHints) {
 
     // Clear the tmp and versions directories at the start of each run
     clearDirectory(tmpDir);
-    clearDirectory(path.join(projectRoot, 'archive/versions'));
+    clearDirectory(path.join(tmpDir, 'archive/versions'));
 
     // Read the build.gradle.kts file
     const buildGradlePath = path.join(projectRoot, 'build.gradle.kts');
