@@ -1,7 +1,4 @@
-ai_pair/tmp
-ai_pair/build
 
-# Node.js
 ai_pair/node_modules/
 ai_pair/npm-debug.log*
 ai_pair/yarn-debug.log*
@@ -11,6 +8,8 @@ ai_pair/.npm
 ai_pair/.node_repl_history
 ai_pair/package-lock.json
 ai_pair/.env
+ai_pair/tmp
+ai_pair/build
 
 # Logs
 logs
@@ -19,9 +18,6 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# Optional npm cache directory
-ai_pair/.npm
 
 # Optional eslint cache
 .eslintcache
