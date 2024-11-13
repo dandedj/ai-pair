@@ -10,6 +10,7 @@ ai_pair/.pnpm-debug.log*
 ai_pair/.npm
 ai_pair/.node_repl_history
 ai_pair/package-lock.json
+ai_pair/.env
 
 # Logs
 logs
