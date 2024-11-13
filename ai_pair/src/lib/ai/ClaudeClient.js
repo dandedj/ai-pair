@@ -1,5 +1,6 @@
 const axios = require('axios');
 const BaseAIClient = require('./BaseAIClient');
+const logger = require('../logger'); // Import the logger
 
 class ClaudeClient extends BaseAIClient {
     constructor(apiKey, model = 'claude-3-5-sonnet-20241022') {
@@ -19,6 +20,7 @@ class ClaudeClient extends BaseAIClient {
     async createMessage({
         max_tokens = 4096,
         temperature = 0.7,
+        systemPrompt = '',
         messages
     }) {
         try {
@@ -28,6 +30,7 @@ class ClaudeClient extends BaseAIClient {
                     model: this.model,
                     max_tokens,
                     temperature,
+                    system: systemPrompt, // Use the top-level system parameter
                     messages: messages.map(msg => ({
                         role: msg.role,
                         content: msg.content
@@ -45,7 +48,7 @@ class ClaudeClient extends BaseAIClient {
             return response.data;
         } catch (error) {
             if (error.response) {
-                console.error('API Error:', {
+                logger.error('API Error:', {
                     status: error.response.status,
                     statusText: error.response.statusText,
                     data: error.response.data
@@ -55,7 +58,7 @@ class ClaudeClient extends BaseAIClient {
         }
     }
 
-    async generateCode(prompt, tmpDir) {
+    async generateCode(prompt, tmpDir, systemPrompt = '') {
         try {
             // Log the request
             const timestamp = this.logRequest(prompt, tmpDir);
@@ -69,24 +72,28 @@ class ClaudeClient extends BaseAIClient {
             this.logTokenUsage(promptTokens, maxOutputTokens, totalEstimatedTokens, this.modelLimits.tpm);
 
             // Create the message in the expected format
-            const messages = [{ role: 'user', content: prompt }];
+            const messages = [
+                { role: 'user', content: prompt }
+            ];
 
             const response = await this.createMessage({
+                systemPrompt,
                 messages,
                 max_tokens: maxOutputTokens
             });
 
             // Extract the generated code from the response
             const generatedCode = response.content[0].text.trim();
-
+            // remove any markdown formatting from the generated code
+            const cleanedGeneratedCode = generatedCode.replace(/```[^\n]*```/g, '').trim();
             // Log the response
-            this.logResponse(generatedCode, tmpDir, timestamp);
+            this.logResponse(cleanedGeneratedCode, tmpDir, timestamp);
 
-            return generatedCode;
+            return cleanedGeneratedCode;
         } catch (error) {
-            console.error('Error generating code:', error.message);
+            logger.error('Error generating code:', error.message);
             if (error.response?.data) {
-                console.error('API Error Details:', error.response.data);
+                logger.error('API Error Details:', error.response.data);
             }
             throw error;
         }

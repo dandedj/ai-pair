@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const logger = require('../logger'); // Import the logger
 
 class BaseAIClient {
     constructor(apiKey, model) {
@@ -26,7 +27,7 @@ class BaseAIClient {
 
     logTokenUsage(promptTokens, maxOutputTokens, totalEstimatedTokens, tpmLimit) {
         const tokenPercent = (totalEstimatedTokens / tpmLimit) * 100;
-        console.log(`Estimated tokens for this call: ${totalEstimatedTokens} (Prompt: ${promptTokens}, Max Output: ${maxOutputTokens}) | Token usage: ${tokenPercent.toFixed(2)}% of TPM limit`);
+        logger.debug(`Estimated tokens for this call: ${totalEstimatedTokens} (Prompt: ${promptTokens}, Max Output: ${maxOutputTokens}) | Token usage: ${tokenPercent.toFixed(2)}% of TPM limit`);
     }
 }
 

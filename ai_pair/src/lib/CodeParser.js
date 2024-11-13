@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { ensureDirectoryExists } = require('./FileUtils');
+const logger = require('./logger');
 
 /**
  * Checks if a file is a test file based on its path.
@@ -19,18 +20,18 @@ function isTestFile(filePath) {
  * @param {string} fileLabel - The label for the file being diffed.
  */
 function showDiff(originalPath, newPath, fileLabel) {
-    console.log(`\n--- Proposed changes for ${fileLabel}: ${originalPath} ---`);
+    logger.info(`Proposed changes for ${fileLabel}: ${originalPath}`);
     try {
         const diffOutput = execSync(`diff --label "Original" ${originalPath} --label "Proposed" ${newPath}`).toString();
-        console.log(diffOutput);
+        logger.info(diffOutput);
     } catch (diffError) {
         if (diffError.stdout) {
-            console.log(diffError.stdout.toString());
+            logger.info(diffError.stdout.toString());
         } else {
-            console.error(`Error diffing files: ${diffError.message}`);
+            logger.error(`Error diffing files: ${diffError.message}`);
         }
     }
-    console.log(`--- End of proposed changes for ${fileLabel}: ${originalPath} ---\n`);
+    logger.info(`End of proposed changes for ${fileLabel}: ${originalPath}\n`);
 }
 
 /**
@@ -39,20 +40,41 @@ function showDiff(originalPath, newPath, fileLabel) {
  * @param {string} tmpDir - The temporary directory for intermediate files.
  */
 function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
-    console.log(`Parsing and applying generated code from ${rootDir}`);
+    logger.info(`Parsing and applying generated code from ${rootDir}`);
     const codeBlocks = generatedCode.split(/File: (.+?)\n/).slice(1);
 
+    logger.debug(`Found ${codeBlocks.length} code blocks in the generated code.`);
+
+    if (codeBlocks.length === 0) {
+        logger.error('No code blocks found in the generated code.');
+        return;
+    }
+
     for (let i = 0; i < codeBlocks.length; i += 2) {
+
         const filePath = codeBlocks[i].trim();
         const fileContent = codeBlocks[i + 1].trim();
-        const fullPath = path.resolve(rootDir, filePath);
-        const tempFilePath = path.resolve(tmpDir, filePath);
+        const fullPath = path.join(rootDir, filePath);
+        const tempFilePath = path.join(tmpDir, filePath);
+
+        // remove any markdown formatting from the file content
+        const cleanedFileContent = fileContent.replace(/```[^\n]*```/g, '').trim();
+
+        logger.debug(`Processing code block ${i + 1} of ${codeBlocks.length}: ${filePath}`);
 
         // ensure the temp file directory exists
         ensureDirectoryExists(path.dirname(tempFilePath));
 
+        // check if the file content is empty
+        if (cleanedFileContent.length === 0 || cleanedFileContent.trim() === '') {
+            logger.error(`File content is empty for file: ${filePath}`);
+            continue;
+        }
+
+        logger.debug(`Writing file content to temp file: ${tempFilePath}`);
+
         // write the file content to the temp file
-        fs.writeFileSync(tempFilePath, fileContent);
+        fs.writeFileSync(tempFilePath, cleanedFileContent);
 
         // Ensure the directory exists
         const dirName = path.dirname(fullPath);
@@ -61,7 +83,7 @@ function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
         const isTestFileFlag = isTestFile(filePath);
 
         if (isTestFileFlag) {
-            console.warn(`WARNING: Attempted to modify a test file: ${filePath}. Changes will not be applied.`);
+            logger.warn(`Attempted to modify a test file: ${filePath}. Changes will not be applied.`);
             showDiff(fullPath, tempFilePath, 'test file');
             continue; // Skip applying changes to test files
         }
@@ -71,10 +93,10 @@ function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
         const isJavaFile = filePath.endsWith('.java');
 
         if (isNewFile) {
-            console.log(`New file will be added: ${filePath}`);
-            console.log(`Contents of the new file:\n${fileContent}`);
+            logger.info(`New file will be added: ${filePath}`);
+            logger.info(`Contents of the new file:\n${cleanedFileContent}`);
         } else if (!isJavaFile) {
-            console.log(`WARNING: A non-Java file will be changed: ${filePath}`);
+            logger.warn(`A non-Java file will be changed: ${filePath}`);
             showDiff(fullPath, tempFilePath, 'non-Java file');
         } else {
             // Archive the original file
@@ -88,8 +110,10 @@ function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
             showDiff(fullPath, tempFilePath, 'file');
         }
 
+        logger.debug(`Writing file content to original file: ${fullPath}`);
+
         // Write the file content
-        fs.writeFileSync(fullPath, fileContent);
+        fs.writeFileSync(fullPath, cleanedFileContent);
 
         // delete the temp file
         fs.unlinkSync(tempFilePath);

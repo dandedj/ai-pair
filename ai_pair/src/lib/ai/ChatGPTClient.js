@@ -1,5 +1,6 @@
 const axios = require('axios');
 const BaseAIClient = require('./BaseAIClient');
+const logger = require('../logger'); // Import the logger
 
 class ChatGPTClient extends BaseAIClient {
     constructor(apiKey, model = 'gpt-4o') {
@@ -21,7 +22,7 @@ class ChatGPTClient extends BaseAIClient {
         return limits[model] || { tpm: 0, rpm: 0, tpd: 0 };
     }
 
-    async generateCode(prompt, tmpDir) {
+    async generateCode(prompt, tmpDir, systemPrompt = '') {
         // Log the request
         const timestamp = this.logRequest(prompt, tmpDir);
 
@@ -34,11 +35,16 @@ class ChatGPTClient extends BaseAIClient {
         this.logTokenUsage(promptTokens, maxOutputTokens, totalEstimatedTokens, this.modelLimits.tpm);
 
         try {
+            const messages = [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: prompt }
+            ];
+
             const response = await axios.post(
                 this.apiUrl,
                 {
                     model: this.model,
-                    messages: [{ role: 'user', content: prompt }],
+                    messages: messages,
                     max_tokens: maxOutputTokens,
                     temperature: 0.5,
                     n: 1,
@@ -64,10 +70,10 @@ class ChatGPTClient extends BaseAIClient {
 
             return generatedCode;
         } catch (error) {
-            console.error('Error generating code:', error);
+            logger.error('Error generating code:', error);
             throw error;
         }
     }
 }
 
-module.exports = ChatGPTClient; 
+module.exports = ChatGPTClient;

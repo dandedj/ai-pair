@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const logger = require('./logger'); // Import the logger
 
 /**
  * Recursively collects all files with a given extension in specified directories.
@@ -57,7 +58,7 @@ function deleteRecursive(targetPath) {
  * @param {string} dir - The directory to clear.
  */
 function clearDirectory(dir) {
-    console.log(`Clearing directory: ${dir}`);
+    logger.debug(`Clearing directory: ${dir}`); // Use logger.debug instead of console.log
     if (fs.existsSync(dir)) {
         fs.readdirSync(dir).forEach(file => {
             const filePath = path.join(dir, file);
@@ -81,7 +82,7 @@ function ensureDirectoryExists(dir) {
  * @param {string} filePath - The file to clear.
  */
 function clearFile(filePath) {
-    console.log(`Clearing file: ${filePath}`);
+    logger.debug(`Clearing file: ${filePath}`); // Use logger.debug instead of console.log
     fs.writeFileSync(filePath, '');
 }
 
@@ -90,4 +91,4 @@ module.exports = {
     clearDirectory,
     ensureDirectoryExists,
     clearFile
-}; 
+};
