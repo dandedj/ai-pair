@@ -36,7 +36,7 @@ sample_java_gradle_project/build/
 sample_java_gradle_project/dist/
 sample_java_gradle_project/tmp/
 sample_java_gradle_project/out/
-sample_java_gradle_project/.gradle/
+sample_java_gradle_project/gradle/
 sample_java_gradle_project/tmp/
 sample_java_gradle_project/.gradle/
 sample_java_gradle_project/build/
