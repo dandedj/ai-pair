@@ -40,6 +40,7 @@ sample_project/build/
 sample_project/dist/
 sample_project/tmp/
 sample_project/out/
+sample_project/.gradle/
 
 # IDEs and editors
 .idea/
