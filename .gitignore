@@ -40,6 +40,7 @@ sample_java_gradle_project/gradle/
 sample_java_gradle_project/tmp/
 sample_java_gradle_project/.gradle/
 sample_java_gradle_project/build/
+sample_java_gradle_project/src/main/java/
 
 # IDEs and editors
 .idea/
