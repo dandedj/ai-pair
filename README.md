@@ -8,7 +8,7 @@ This AI pair programmer automates that process to improve the speed of developme
 
 ### How it works
 
-#### Pair Setup
+#### Pair programmer setup
 
 1. Install node.js
 2. Install dependencies: `npm install`
