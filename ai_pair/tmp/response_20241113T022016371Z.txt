@@ -1,0 +1,51 @@
+// File: ../sample_project/src/main/java/org/example/OpenRTB.java
+package org.example;
+
+import org.json.JSONObject;
+
+/**
+ * OpenRTB class for handling OpenRTB bid requests
+ * Parses JSON data and extracts key information like COPPA status and banner dimensions
+ */
+public class OpenRTB {
+    // COPPA compliance flag (Children's Online Privacy Protection Act)
+    private int coppa;
+    // Banner width in pixels
+    private int width;
+    // Banner height in pixels
+    private int height;
+
+    /**
+     * Parses OpenRTB JSON string and extracts relevant fields
+     * @param json OpenRTB bid request JSON string
+     */
+    public void fromJson(String json) {
+        JSONObject jsonObject = new JSONObject(json);
+        // Extract COPPA value from regs object
+        this.coppa = jsonObject.getJSONObject("regs").getInt("coppa");
+        // Extract banner dimensions from first impression object
+        this.width = jsonObject.getJSONArray("imp").getJSONObject(0).getJSONObject("banner").getInt("w");
+        this.height = jsonObject.getJSONArray("imp").getJSONObject(0).getJSONObject("banner").getInt("h");
+    }
+
+    /**
+     * @return COPPA compliance flag value
+     */
+    public int getCoppa() {
+        return coppa;
+    }
+
+    /**
+     * @return Banner width in pixels
+     */
+    public int getWidth() {
+        return width;
+    }
+
+    /**
+     * @return Banner height in pixels
+     */
+    public int getHeight() {
+        return height;
+    }
+}

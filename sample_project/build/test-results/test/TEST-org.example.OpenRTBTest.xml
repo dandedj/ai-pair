@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.example.OpenRTBTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2024-11-13T02:20:10" hostname="DAVIDs-MacBook-Pro.local" time="0.016">
+  <properties/>
+  <testcase name="testOpenRTB()" classname="org.example.OpenRTBTest" time="0.016"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
