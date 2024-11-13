@@ -1,30 +1,82 @@
-   # Java
-   *.class
-   *.jar
-   *.war
-   *.ear
+ai_pair/tmp
+ai_pair/build
 
-   # Gradle
-   .gradle/
-   build/
+# Node.js
+ai_pair/node_modules/
+ai_pair/npm-debug.log*
+ai_pair/yarn-debug.log*
+ai_pair/yarn-error.log*
+ai_pair/.pnpm-debug.log*
+ai_pair/.npm
+ai_pair/.node_repl_history
+ai_pair/package-lock.json
 
-   # script
-   archive/
-   archive/versions
+# Logs
+logs
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-   # VS Code
-   .vscode/
+# Optional npm cache directory
+ai_pair/.npm
 
-   # Node.js
-   scripts/node_modules
-   scripts/npm-debug.log
-   scripts/yarn-error.log
-   scripts/package-lock.json
+# Optional eslint cache
+.eslintcache
 
-   # Logs
-   *.log
+# Optional REPL history
+ai_pair.node_repl_history
 
-   # Temporary files
-   tmp/
+# Output of 'npm pack'
+*.tgz
 
-   .env
+# dotenv environment variables file
+.env
+
+# Build directories
+sample_project/build/
+sample_project/dist/
+sample_project/tmp/
+sample_project/out/
+
+# IDEs and editors
+.idea/
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+
+# Gradle
+sample_project/.gradle/
+sample_project/build/
+
+# VS Code
+.vscode/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+ai_pair/tmp
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Other
+*.bak
+*.old
+*.orig
+*.rej
