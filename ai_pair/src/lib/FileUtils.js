@@ -30,8 +30,8 @@ function collectFilesWithExtension(dirs, extension) {
  * @param {string[]} dirs - The directories to search.
  * @returns {Array<{ path: string, content: string }>} - The collected Java files.
  */
-function collectJavaFiles(dirs) {
-    return collectFilesWithExtension(dirs, '.java');
+function collectFiles(dirs, extension) {
+    return collectFilesWithExtension(dirs, extension);
 }
 
 /**
@@ -87,7 +87,7 @@ function clearFile(filePath) {
 }
 
 module.exports = {
-    collectJavaFiles,
+    collectFilesWithExtension,
     clearDirectory,
     ensureDirectoryExists,
     clearFile

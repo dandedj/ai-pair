@@ -9,19 +9,21 @@ const logger = require('./lib/logger');
         const envVars = loadConfig();
         const args = process.argv.slice(2);
         const parsedArgs = minimist(args, {
-            alias: { m: 'model', p: 'project-root' },
-            default: { model: 'gpt-4o' }
+            alias: { m: 'model', p: 'project-root', e: 'extension' },
+            default: { model: 'gpt-4o', extension: '.java' }
         });
 
         validateArgs(parsedArgs);
 
         const model = parsedArgs.model;
         const projectRoot = path.resolve(parsedArgs['project-root']);
+        const extension = parsedArgs.extension;
         const { ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, LOG_LEVEL } = envVars;
 
         const runner = new AIPairRunner(
             model,
             projectRoot,
+            extension,
             ANTHROPIC_API_KEY,
             OPENAI_API_KEY,
             GEMINI_API_KEY,
@@ -46,7 +48,7 @@ function validateArgs(args) {
 
     if (!args['project-root']) {
         logger.error("The --project-root parameter is required.");
-        console.log("Usage: node AIPair.js --model=<model> --project-root=<path>");
+        console.log("Usage: node AIPair.js --model=<model> --project-root=<path> [--extension=<file_extension>]");
         process.exit(1);
     }
 } 

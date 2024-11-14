@@ -18,20 +18,40 @@ function isTestFile(filePath) {
  * @param {string} originalPath - The path to the original file.
  * @param {string} newPath - The path to the new file.
  * @param {string} fileLabel - The label for the file being diffed.
+ * @returns {boolean} - True if the diff is meaningful; otherwise, false.
  */
 function showDiff(originalPath, newPath, fileLabel) {
-    logger.info(`Proposed changes for ${fileLabel}: ${originalPath}`);
     try {
         const diffOutput = execSync(`diff --label "Original" ${originalPath} --label "Proposed" ${newPath}`).toString();
-        logger.info(diffOutput);
+        
+        // Check if the diff output contains meaningful changes
+        const meaningfulDiff = diffOutput.split('\n').some(line => line.trim() && !line.startsWith('---') && !line.startsWith('+++'));
+        
+        if (meaningfulDiff) {
+            logger.info(`Proposed changes for ${fileLabel}: ${originalPath}`);
+            logger.info(diffOutput);
+            return true;
+        } else {
+            logger.info(`No meaningful changes detected for ${fileLabel}: ${originalPath}`);
+            return false;
+        }
     } catch (diffError) {
         if (diffError.stdout) {
-            logger.info(diffError.stdout.toString());
+            const diffOutput = diffError.stdout.toString();
+            const meaningfulDiff = diffOutput.split('\n').some(line => line.trim() && !line.startsWith('---') && !line.startsWith('+++'));
+            
+            if (meaningfulDiff) {
+                logger.info(diffOutput);
+                return true;
+            } else {
+                logger.info(`No meaningful changes detected for ${fileLabel}: ${originalPath}`);
+                return false;
+            }
         } else {
             logger.error(`Error diffing files: ${diffError.message}`);
+            return false;
         }
     }
-    logger.info(`End of proposed changes for ${fileLabel}: ${originalPath}\n`);
 }
 
 /**
@@ -40,7 +60,7 @@ function showDiff(originalPath, newPath, fileLabel) {
  * @param {string} tmpDir - The temporary directory for intermediate files.
  */
 function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
-    logger.info(`Parsing and applying generated code from ${rootDir}`);
+    logger.debug(`Parsing and applying generated code from ${rootDir}`);
     const codeBlocks = generatedCode.split(/File: (.+?)\n/).slice(1);
 
     logger.debug(`Found ${codeBlocks.length} code blocks in the generated code.`);
@@ -50,33 +70,30 @@ function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
         return;
     }
 
-    for (let i = 0; i < codeBlocks.length; i += 2) {
+    let filesChanged = 0;
+    let filesAdded = 0;
+    let nonSourceFilesChanged = 0;
+    let noMeaningfulDiffCount = 0;
 
+    for (let i = 0; i < codeBlocks.length; i += 2) {
         const filePath = codeBlocks[i].trim();
         const fileContent = codeBlocks[i + 1].trim();
         const fullPath = path.join(rootDir, filePath);
         const tempFilePath = path.join(tmpDir, filePath);
 
-        // remove any markdown formatting from the file content
         const cleanedFileContent = fileContent.replace(/```[^\n]*```/g, '').trim();
 
         logger.debug(`Processing code block ${i + 1} of ${codeBlocks.length}: ${filePath}`);
 
-        // ensure the temp file directory exists
         ensureDirectoryExists(path.dirname(tempFilePath));
 
-        // check if the file content is empty
         if (cleanedFileContent.length === 0 || cleanedFileContent.trim() === '') {
             logger.error(`File content is empty for file: ${filePath}`);
             continue;
         }
 
-        logger.debug(`Writing file content to temp file: ${tempFilePath}`);
-
-        // write the file content to the temp file
         fs.writeFileSync(tempFilePath, cleanedFileContent);
 
-        // Ensure the directory exists
         const dirName = path.dirname(fullPath);
         ensureDirectoryExists(dirName);
 
@@ -84,40 +101,46 @@ function parseAndApplyGeneratedCode(rootDir, tmpDir, generatedCode) {
 
         if (isTestFileFlag) {
             logger.warn(`Attempted to modify a test file: ${filePath}. Changes will not be applied.`);
-            showDiff(fullPath, tempFilePath, 'test file');
-            continue; // Skip applying changes to test files
+            if (!showDiff(fullPath, tempFilePath, 'test file')) {
+                noMeaningfulDiffCount++;
+            }
+            continue;
         }
 
-        // Check if the file is new or a non-Java file
         const isNewFile = !fs.existsSync(fullPath);
-        const isJavaFile = filePath.endsWith('.java');
+        const isSrcFile = filePath.endsWith(this.extension);
 
         if (isNewFile) {
-            logger.info(`New file will be added: ${filePath}`);
-            logger.info(`Contents of the new file:\n${cleanedFileContent}`);
-        } else if (!isJavaFile) {
-            logger.warn(`A non-Java file will be changed: ${filePath}`);
-            showDiff(fullPath, tempFilePath, 'non-Java file');
+            logger.debug(`New file will be added: ${filePath}`);
+            logger.debug(`Contents of the new file:\n${cleanedFileContent}`);
+            filesAdded++;
+        } else if (!isSrcFile) {
+            logger.warn(`A non-source file will be changed: ${filePath}`);
+            if (showDiff(fullPath, tempFilePath, 'non-source file')) {
+                nonSourceFilesChanged++;
+            } else {
+                noMeaningfulDiffCount++;
+            }
         } else {
-            // Archive the original file
             const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
             const archiveDir = path.join(tmpDir, 'archive/versions', path.dirname(filePath));
             ensureDirectoryExists(archiveDir);
             const archivePath = path.join(archiveDir, `${path.basename(filePath, '.java')}_${timestamp}.java`);
             fs.copyFileSync(fullPath, archivePath);
 
-            // Show diff for existing files
-            showDiff(fullPath, tempFilePath, 'file');
+            if (showDiff(fullPath, tempFilePath, 'file')) {
+                filesChanged++;
+            } else {
+                noMeaningfulDiffCount++;
+            }
         }
 
-        logger.debug(`Writing file content to original file: ${fullPath}`);
-
-        // Write the file content
         fs.writeFileSync(fullPath, cleanedFileContent);
-
-        // delete the temp file
         fs.unlinkSync(tempFilePath);
     }
+
+    logger.debug(`Summary: ${filesChanged} source files changed, ${filesAdded} files added, ${nonSourceFilesChanged} non-source files changed, ${noMeaningfulDiffCount} files had no meaningful diff.`);
+    console.log(`Summary: ${filesChanged} source files changed, ${filesAdded} files added, ${nonSourceFilesChanged} non-source files changed, ${noMeaningfulDiffCount} files had no meaningful diff.`);
 }
 
 module.exports = { parseAndApplyGeneratedCode }; 

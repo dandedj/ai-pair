@@ -8,15 +8,16 @@ const ChatGPTClient = require('./lib/ai/ChatGPTClient');
 const ClaudeClient = require('./lib/ai/ClaudeClient');
 const GeminiClient = require('./lib/ai/GeminiClient');
 const { parseAndApplyGeneratedCode } = require('./lib/CodeParser');
-const { collectJavaFiles, clearDirectory } = require('./lib/FileUtils');
+const { collectFilesWithExtension, clearDirectory } = require('./lib/FileUtils');
 const { runTests, summarizeAllTests } = require('./lib/TestUtils');
 const logger = require('./lib/logger');
 
 
 class AIPairRunner {
-    constructor(model, projectRoot, anthropicApiKey, openaiApiKey, geminiApiKey, logLevel) {
+    constructor(model, projectRoot, extension, anthropicApiKey, openaiApiKey, geminiApiKey, logLevel) {
         this.model = model;
         this.projectRoot = projectRoot;
+        this.extension = extension;
         this.apiKeys = {
             'anthropic': anthropicApiKey,
             'openai': openaiApiKey,
@@ -36,6 +37,8 @@ class AIPairRunner {
         this.tmpDir = path.join(process.cwd(), 'tmp');
         this.systemPrompt = `You are a senior software engineer working on a gradle project with kotlin. Please respond in plain text and do not include any markdown formatting.`;
         this.accumulatedHints = [];
+
+        console.log(logLevel);
     }
 
     getApiKeyForModel(model) {
@@ -65,15 +68,6 @@ class AIPairRunner {
     }
 
     promptForModel() {
-        console.log('Select a model:');
-        console.log('1. gpt-4o');
-        console.log('2. gpt-4o-mini');
-        console.log('3. gpt-3.5-turbo');
-        console.log('4. claude-3-5-sonnet-20241022');
-        console.log('5. gemini-1.5-pro');
-        console.log('6. gemini-2');
-        const modelChoice = readline.question('Enter the number of the model you want to use: ');
-
         const modelMap = {
             '1': 'gpt-4o',
             '2': 'gpt-4o-mini',
@@ -83,6 +77,12 @@ class AIPairRunner {
             '6': 'gemini-2'
         };
 
+        console.log('Select a model:');
+        for (const [key, model] of Object.entries(modelMap)) {
+            console.log(`${key}. ${model}`);
+        }
+
+        const modelChoice = readline.question('Enter the number of the model you want to use: ');
         return modelMap[modelChoice] || 'gpt-4o';
     }
 
@@ -101,13 +101,12 @@ class AIPairRunner {
             }
         }
 
-        logger.debug('Collecting Java files for code generation');
-        const javaFiles = collectJavaFiles([
-            path.join(this.projectRoot, 'src/main/java'),
-            path.join(this.projectRoot, 'src/test/java')
-        ]);
+        logger.debug('Collecting files for code generation');
+        const javaFiles = collectFilesWithExtension([
+            path.join(this.projectRoot, 'src/')
+        ], this.extension);
 
-        logger.debug(`Found ${javaFiles.length} Java files`);
+        logger.debug(`Found ${javaFiles.length} files with extension ${this.extension}`);
         
         const filesContent = javaFiles.map(file => {
             const relativePath = path.relative(this.projectRoot, file.path);
@@ -141,15 +140,27 @@ The results will be used to save a file to code so do NOT use markdown formattin
         fs.appendFileSync(sessionLogFilePath, `Prompt at ${new Date().toISOString()}:\n${prompt}\n\n`);
 
         logger.debug('Sending prompt to AI service');
+        
+        // Start the spinner
+        const spinner = this.startSpinner('Generating code');
         const generatedCode = await this.client.generateCode(prompt, this.tmpDir, this.systemPrompt);
+        clearInterval(spinner); // Stop the spinner
 
-        logger.info('Applying generated code changes');
         parseAndApplyGeneratedCode(this.projectRoot, this.tmpDir, generatedCode);
-
-        console.log('Changes have been applied.');
 
         testsPassed = runTests(this.projectRoot, this.tmpDir);
         return testsPassed;
+    }
+
+    startSpinner(message) {
+        const spinnerChars = ['|', '/', '-', '\\'];
+        let index = 0;
+        process.stdout.write(message);
+
+        return setInterval(() => {
+            process.stdout.write(`\r${message} ${spinnerChars[index]}`);
+            index = (index + 1) % spinnerChars.length;
+        }, 100);
     }
 
     async handleSingleIteration(force = false) {
@@ -184,14 +195,14 @@ The results will be used to save a file to code so do NOT use markdown formattin
     }
 
     async run() {
-        console.log('Log Level:', this.logLevel);
+        logger.debug('Log Level:', this.logLevel);
 
         const apiKey = this.getApiKeyForModel(this.model);
         this.client = this.selectAIClient(apiKey, this.model);
 
         logger.debug(`Initialized ${this.client.model} client with API key: ${this.client.apiKey.substring(0, 4)}...`);
 
-        logger.info('Clearing temporary directories');
+        logger.debug('Clearing temporary directories');
         clearDirectory(this.tmpDir);
         clearDirectory(path.join(this.tmpDir, 'archive/versions'));
 

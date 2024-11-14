@@ -23,7 +23,7 @@ function loadConfig() {
     }
 
     if (!envFound) {
-        logger.warn('No .env file found in the expected locations.');
+        logger.error('No .env file found in the expected locations.');
     }
 
     // Verify required environment variables

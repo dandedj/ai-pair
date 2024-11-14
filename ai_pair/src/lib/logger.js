@@ -3,7 +3,7 @@ const path = require("path");
 const { format } = require("winston");
 
 // Set the log level from the environment variable, defaulting to 'info' if not set
-const logLevel = process.env.LOG_LEVEL || "info";
+const logLevel = process.env.LOG_LEVEL;
 
 // Custom format to format the timestamp consistently
 const timestampFormat = {
