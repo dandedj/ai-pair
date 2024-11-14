@@ -11,8 +11,9 @@ This AI pair programmer automates that process to improve the speed of developme
 #### Pair programmer setup
 
 1. Install node.js
-2. Install dependencies: `npm install`
+2. Install dependencies: From the ai_pair directory, run `npm install`
 3. Add API_KEYs to the ai_pair/.env file for the model types that you intend on running
+4. Optional: Set the log in the .env
 
 #### Sample project setup
 
