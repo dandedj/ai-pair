@@ -8,7 +8,6 @@ dotenv.config();
 
 // Set the log level from the environment variable, defaulting to 'info' if not set
 const logLevel = process.env.LOG_LEVEL || 'info';
-console.log(`Logger initialized with log level: ${logLevel}`); // Debugging line
 
 // Custom format to format the timestamp consistently
 const timestampFormat = {

@@ -75,6 +75,8 @@ public class OpenRTBTest {
         assertEquals(0, openRTB.getCoppa());
         assertEquals(300, openRTB.getWidth());
         assertEquals(250, openRTB.getHeight());
-        
+        assertEquals(300*250, openRTB.getArea());
+
+
     }
 }

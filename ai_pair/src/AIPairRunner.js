@@ -9,7 +9,7 @@ const ClaudeClient = require('./lib/ai/ClaudeClient');
 const GeminiClient = require('./lib/ai/GeminiClient');
 const { parseAndApplyGeneratedCode } = require('./lib/CodeParser');
 const { collectFilesWithExtension, clearDirectory } = require('./lib/FileUtils');
-const { runTests, summarizeAllTests } = require('./lib/TestUtils');
+const { runTests, summarizeTestResults, summarizeAllTests } = require('./lib/TestUtils');
 const logger = require('./lib/logger');
 
 
@@ -89,26 +89,72 @@ class AIPairRunner {
     async performCodeGenerationCycle(force = false) {
         let testsPassed = true;
         let testOutput = 'No test output yet.';
+        let failedTests = [];
 
         if (!force) {
+            console.log('Performing initial test to determine if changes are needed');
             testsPassed = runTests(this.projectRoot, this.tmpDir);
             testOutput = fs.readFileSync(path.join(this.tmpDir, 'test_output.txt'), 'utf-8');
 
             if (testsPassed) {
                 console.log('Project compiles and all tests passed! No changes needed.');
-                summarizeAllTests(this.projectRoot, this.tmpDir);
                 return;
+            } else {
+                // Get the failed tests
+                failedTests = summarizeAllTests(this.projectRoot, this.tmpDir);
             }
         }
 
         logger.debug('Collecting files for code generation');
-        const javaFiles = collectFilesWithExtension([
-            path.join(this.projectRoot, 'src/')
+        const codeFiles = collectFilesWithExtension([
+            path.join(this.projectRoot, 'src/main')
         ], this.extension);
 
-        logger.debug(`Found ${javaFiles.length} files with extension ${this.extension}`);
-        
-        const filesContent = javaFiles.map(file => {
+        logger.debug(`Found ${codeFiles.length} files with extension ${this.extension}`);
+
+        // output the list of found code files to the debug logger
+        logger.debug('Found code files:');
+        codeFiles.forEach(file => logger.debug(file.path));
+
+        // Collect only the test files that failed
+        const testFiles = failedTests.map(test => {
+            let className = '';
+            logger.debug(`Extracting class name from test name: ${test}`);
+
+            if (test.includes('(')) {
+                // Handle JUnit 4 format: "testMethod(org.example.OpenRTBTest)"
+                const match = test.match(/\(([^)]+)\)/);
+                className = match ? match[1] : test;
+            } else {
+                // Directly use the test string as the className
+                className = test;
+            }
+
+            // Split by '.', check if the last part is a method name (starts with a lowercase letter)
+            const parts = className.split('.');
+            const lastPart = parts[parts.length - 1];
+            if (lastPart && lastPart[0] === lastPart[0].toLowerCase()) {
+                // It's likely a method name, remove it
+                className = parts.slice(0, -1).join('.');
+            }
+
+            const testFilePath = path.join(this.projectRoot, 'src/test/java', className.replace(/\./g, '/') + '.java');
+            logger.debug(`Constructed test file path: ${testFilePath}`);
+
+            return {
+                path: testFilePath,
+                content: fs.existsSync(testFilePath) ? fs.readFileSync(testFilePath, 'utf-8') : ''
+            };
+        });
+
+        // output the list of found test files to the debug logger
+        logger.debug('Found test files:');
+        testFiles.forEach(file => logger.debug(file.path));
+
+        // Log the number of files of each type that will be used for code generation
+        console.log(`${codeFiles.length} code files and ${testFiles.length} test files will be used for code generation`);
+
+        const filesContent = [...codeFiles, ...testFiles].map(file => {
             const relativePath = path.relative(this.projectRoot, file.path);
             return `File: ${relativePath}\n\n${file.content}`;
         }).join('\n\n');
@@ -134,7 +180,15 @@ class AIPairRunner {
 
         parseAndApplyGeneratedCode(this.projectRoot, this.tmpDir, this.extension, generatedCode);
 
+        console.log('Running tests to see if the changes fixed the problem');
         testsPassed = runTests(this.projectRoot, this.tmpDir);
+        
+        // show the test_output.txt file in the console
+        // only if the tests failed
+        if (!testsPassed) {
+            console.log(fs.readFileSync(path.join(this.tmpDir, 'test_output.txt'), 'utf-8'));
+        }
+
         return testsPassed;
     }
 
@@ -152,13 +206,18 @@ class AIPairRunner {
     async handleSingleIteration(force = false) {
         const allTestsPassed = await this.performCodeGenerationCycle(force);
         if (allTestsPassed) {
-            console.log('All tests passed!');
+            logger.debug('All tests passed!');
         }
     }
 
-    watchTestDirectory() {
-        chokidar.watch(this.testDir, { persistent: true }).on('change', async () => {
-            console.log('Detected changes in test directory.');
+    watchCode() {
+        const directoriesToWatch = [
+            path.join(this.projectRoot, 'src'),
+            path.join(this.projectRoot, 'test')
+        ];
+
+        chokidar.watch(directoriesToWatch, { persistent: true }).on('change', async (filePath) => {
+            console.log(`Detected changes in ${filePath}.`);
             await this.handleSingleIteration(true);
         });
     }
@@ -215,7 +274,7 @@ class AIPairRunner {
                 process.exit(0);
             } else if (userChoice === 'w') {
                 console.log('Watch mode enabled. Watching for changes in the test directory...');
-                this.watchTestDirectory();
+                this.watchCode();
                 break;
             } else {
                 console.log('Invalid option. Please try again.');
