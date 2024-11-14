@@ -1,9 +1,14 @@
 const winston = require("winston");
 const path = require("path");
 const { format } = require("winston");
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
 
 // Set the log level from the environment variable, defaulting to 'info' if not set
-const logLevel = process.env.LOG_LEVEL;
+const logLevel = process.env.LOG_LEVEL || 'info';
+console.log(`Logger initialized with log level: ${logLevel}`); // Debugging line
 
 // Custom format to format the timestamp consistently
 const timestampFormat = {

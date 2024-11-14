@@ -16,7 +16,7 @@ function loadConfig() {
     for (const envPath of envPaths) {
         if (fs.existsSync(envPath)) {
             dotenv.config({ path: envPath });
-            logger.info(`Loaded environment variables from ${envPath}`);
+            console.log(`Loaded environment variables from ${envPath}`); // Debugging line
             envFound = true;
             break;
         }

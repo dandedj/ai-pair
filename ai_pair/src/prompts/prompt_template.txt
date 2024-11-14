@@ -1,0 +1,16 @@
+The following Java / gradle project unit test is failing:
+{testOutput}
+
+Here are the current contents of the Java files:
+{filesContent}
+
+Here is the build file contents:
+{buildGradleContent}
+
+Please provide the updated code for the files that will make the test pass. Only include 
+files that require changes in the response. Before each file path, add the following:
+File: <file_path>
+
+Do not EVER change any of the unit test classes (*.Test.java).
+The results will be used to save a file to code so do NOT use markdown formatting or 
+include other information in the response. Only the files and their contents.

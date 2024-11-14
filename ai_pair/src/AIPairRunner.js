@@ -14,10 +14,11 @@ const logger = require('./lib/logger');
 
 
 class AIPairRunner {
-    constructor(model, projectRoot, extension, anthropicApiKey, openaiApiKey, geminiApiKey, logLevel) {
+    constructor(model, projectRoot, testDir, extension, anthropicApiKey, openaiApiKey, geminiApiKey, logLevel) {
         this.model = model;
         this.projectRoot = projectRoot;
         this.extension = extension;
+        this.testDir = testDir;
         this.apiKeys = {
             'anthropic': anthropicApiKey,
             'openai': openaiApiKey,
@@ -35,10 +36,9 @@ class AIPairRunner {
         };
 
         this.tmpDir = path.join(process.cwd(), 'tmp');
-        this.systemPrompt = `You are a senior software engineer working on a gradle project with kotlin. Please respond in plain text and do not include any markdown formatting.`;
+        this.systemPrompt = fs.readFileSync(path.join(__dirname, 'prompts', 'system_prompt.txt'), 'utf-8');
+        this.promptTemplate = fs.readFileSync(path.join(__dirname, 'prompts', 'prompt_template.txt'), 'utf-8');
         this.accumulatedHints = [];
-
-        console.log(logLevel);
     }
 
     getApiKeyForModel(model) {
@@ -113,24 +113,10 @@ class AIPairRunner {
             return `File: ${relativePath}\n\n${file.content}`;
         }).join('\n\n');
 
-        let prompt = `The following Java / gradle project unit test is failing:
-
-${testOutput}
-
-Here are the current contents of the Java files:
-
-${filesContent}
-
-Here is the build file contents:
-
-${this.buildGradleContent}
-
-Please provide the updated Java code for the files that will make the test pass. 
-Before each file path, add the following:
-File: <file_path>
-
-Do not EVER change any of the unit test classes (*.Test.java). 
-The results will be used to save a file to code so do NOT use markdown formatting or include other information in the response. Only the files and their contents. `;
+        let prompt = this.promptTemplate
+            .replace('{testOutput}', testOutput)
+            .replace('{filesContent}', filesContent)
+            .replace('{buildGradleContent}', this.buildGradleContent);
 
         if (this.accumulatedHints.length > 0) {
             prompt += `\n\nHints for improvement: ${this.accumulatedHints.join('; ')}`;
@@ -146,7 +132,7 @@ The results will be used to save a file to code so do NOT use markdown formattin
         const generatedCode = await this.client.generateCode(prompt, this.tmpDir, this.systemPrompt);
         clearInterval(spinner); // Stop the spinner
 
-        parseAndApplyGeneratedCode(this.projectRoot, this.tmpDir, generatedCode);
+        parseAndApplyGeneratedCode(this.projectRoot, this.tmpDir, this.extension, generatedCode);
 
         testsPassed = runTests(this.projectRoot, this.tmpDir);
         return testsPassed;
@@ -171,8 +157,7 @@ The results will be used to save a file to code so do NOT use markdown formattin
     }
 
     watchTestDirectory() {
-        const testDir = path.join(this.projectRoot, 'src/test/java');
-        chokidar.watch(testDir, { persistent: true }).on('change', async () => {
+        chokidar.watch(this.testDir, { persistent: true }).on('change', async () => {
             console.log('Detected changes in test directory.');
             await this.handleSingleIteration(true);
         });
