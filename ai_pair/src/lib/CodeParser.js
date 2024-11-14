@@ -66,7 +66,8 @@ function parseAndApplyGeneratedCode(rootDir, tmpDir, extension, generatedCode) {
     logger.debug(`Found ${codeBlocks.length} code blocks in the generated code.`);
 
     if (codeBlocks.length === 0) {
-        logger.error('No code blocks found in the generated code.');
+        console.log('No code changes recommended by AI');
+        logger.debug('No code blocks found in the generated code.');
         return;
     }
 

@@ -3,6 +3,7 @@ const path = require('path');
 const xml2js = require('xml2js');
 const { execSync } = require('child_process');
 const { ensureDirectoryExists, clearFile } = require('./FileUtils');
+const logger = require('./logger');
 
 /**
  * Runs unit tests using Gradle and captures the output.
@@ -87,7 +88,7 @@ function summarizeAllTests(projectRoot, tmpDir) {
                 const xmlContent = fs.readFileSync(filePath, 'utf-8');
                 parser.parseString(xmlContent, (err, result) => {
                     if (err) {
-                        console.error(`Error parsing XML file ${file}:`, err);
+                        logger.error(`Error parsing XML file ${file}:`, err);
                     } else {
                         const testCases = result.testsuite.testcase || [];
                         testCases.forEach(testCase => {
@@ -108,23 +109,30 @@ function summarizeAllTests(projectRoot, tmpDir) {
         });
     }
 
-    console.log('Test Summary:');
+    logger.debug('Test Summary:');
     if (testSummary.passed.length > 0) {
-        console.log('Passed Tests:');
-        testSummary.passed.forEach(test => console.log(`- ${test}`));
+        logger.debug('Passed Tests:');
+        testSummary.passed.forEach(test => logger.debug(`- ${test}`));
     }
     if (testSummary.failed.length > 0) {
-        console.log('Failed Tests:');
-        testSummary.failed.forEach(test => console.log(`- ${test}`));
+        logger.debug('Failed Tests:');
+        testSummary.failed.forEach(test => logger.debug(`- ${test}`));
     }
     if (testSummary.errored.length > 0) {
-        console.log('Errored Tests:');
-        testSummary.errored.forEach(test => console.log(`- ${test}`));
+        logger.debug('Errored Tests:');
+        testSummary.errored.forEach(test => logger.debug(`- ${test}`));
     }
+
+    // output the test summary to the console with counts only
+    console.log(`Passed: ${testSummary.passed.length}      Failed: ${testSummary.failed.length}         Errored: ${testSummary.errored.length}`);
+
+    // return the set of failed tests class names
+    return testSummary.failed;
+    
 }
 
 module.exports = {
     runTests,
     appendXmlTestResults,
-    summarizeAllTests
+    summarizeAllTests,
 }; 
