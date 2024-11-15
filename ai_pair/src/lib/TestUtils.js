@@ -19,15 +19,38 @@ function runTests(projectRoot, tmpDir) {
     try {
         const result = execSync('gradle --warning-mode all clean test', { cwd: projectRoot });
         fs.writeFileSync(testOutputPath, result.toString());
+
         appendXmlTestResults(projectRoot, tmpDir);
-        summarizeAllTests(projectRoot, tmpDir);
-        return true;
+        const failedTests = summarizeAllTests(projectRoot, tmpDir);
+
+        return {
+            compilationFailed: false,
+            failedTests: failedTests,
+            testsPassed: failedTests.length === 0
+        };
     } catch (error) {
         const stdout = error.stdout ? error.stdout.toString() : '';
         const stderr = error.stderr ? error.stderr.toString() : '';
         fs.writeFileSync(testOutputPath, stdout + stderr);
+
         appendXmlTestResults(projectRoot, tmpDir);
-        return false;
+
+        const outputContent = stdout + stderr;
+        if (outputContent.includes('COMPILATION FAILED') || outputContent.includes('BUILD FAILED')) {
+            logger.error('Compilation failed. Tests not run.');
+            return {
+                compilationFailed: true,
+                failedTests: [],
+                testsPassed: false
+            };
+        } else {
+            const failedTests = summarizeAllTests(projectRoot, tmpDir);
+            return {
+                compilationFailed: false,
+                failedTests: failedTests,
+                testsPassed: failedTests.length === 0
+            };
+        }
     }
 }
 
