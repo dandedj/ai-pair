@@ -1,0 +1,73 @@
+{
+  "name": "ai-pair-programmer",
+  "displayName": "AI Pair Programmer",
+  "publisher": "Dandeneau LLC",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "activationEvents": [
+    "*",
+    "onView:aiPairProgrammerPanel",
+    "onCommand:ai-pair-programmer.start",
+    "onCommand:ai-pair-programmer.stop",
+    "onCommand:ai-pair-programmer.toggle"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-pair-programmer.start",
+        "title": "Start AI Pair Programmer"
+      },
+      {
+        "command": "ai-pair-programmer.stop",
+        "title": "Stop AI Pair Programmer"
+      },
+      {
+        "command": "ai-pair-programmer.toggle",
+        "title": "Toggle AI Pair Programmer"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiPairProgrammer",
+          "title": "AI Pair Programmer",
+          "icon": "images/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "aiPairProgrammer": [
+        {
+          "type": "webview",
+          "id": "aiPairProgrammerPanel",
+          "name": "AI Pair Programmer"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "AI Pair Programmer Configuration",
+      "properties": {
+        "aiPairProgrammer.model": {
+          "type": "string",
+          "default": "gpt-4",
+          "enum": ["gpt-4", "gpt-3.5-turbo"],
+          "description": "Select the AI model to use for pair programming."
+        },
+        "aiPairProgrammer.rootDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Root directory for the AI Pair Programmer."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode": "^1.1.37",
+    "ai-pair": "file:../test_driven/ai-pair"
+  },
+  "icon": "images/icon.png"
+}

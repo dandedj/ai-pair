@@ -3,7 +3,9 @@ const path = require('path');
 const xml2js = require('xml2js');
 const { execSync } = require('child_process');
 const { ensureDirectoryExists, clearFile } = require('./FileUtils');
-const logger = require('./logger');
+const { getLogger } = require('./logger');
+
+const logger = getLogger();
 
 /**
  * Runs unit tests using Gradle and captures the output.
@@ -17,6 +19,7 @@ function runTests(projectRoot, tmpDir) {
     clearFile(testOutputPath);
 
     try {
+        logger.debug('Running tests with Gradle using command: gradle --warning-mode all clean test in ', projectRoot);
         const result = execSync('gradle --warning-mode all clean test', { cwd: projectRoot });
         fs.writeFileSync(testOutputPath, result.toString());
 
@@ -36,7 +39,7 @@ function runTests(projectRoot, tmpDir) {
         appendXmlTestResults(projectRoot, tmpDir);
 
         const outputContent = stdout + stderr;
-        if (outputContent.includes('COMPILATION FAILED') || outputContent.includes('BUILD FAILED')) {
+        if (outputContent.includes('COMPILATION FAILED')) {
             logger.error('Compilation failed. Tests not run.');
             return {
                 compilationFailed: true,

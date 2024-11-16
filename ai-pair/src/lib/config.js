@@ -1,7 +1,9 @@
 const path = require('path');
 const dotenv = require('dotenv');
 const fs = require('fs');
-const logger = require('./logger');
+const { getLogger } = require('./logger');
+
+const logger = getLogger();
 
 // Load environment variables from all possible locations
 function loadConfig() {
