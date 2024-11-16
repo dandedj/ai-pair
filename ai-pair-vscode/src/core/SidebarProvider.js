@@ -1,7 +1,7 @@
 const vscode = require('vscode');
 const globalEvents = require('../utils/events');
 const sidebar = require('../webview/sidebar');
-const { AIPairRunner } = require('ai-pair');
+const AIPairRunner = require('ai-pair');
 
 class SidebarProvider {
     constructor(extensionUri, statusBarItem) {
