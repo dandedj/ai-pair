@@ -1,8 +1,8 @@
 {
   "name": "ai-pair",
   "version": "1.0.0",
-  "description": "AI Pair Programming Assistant",
-  "main": "src/index.js",
+  "description": "Core library for AI Pair Programming",
+  "main": "src/AIPairRunner.js",
   "files": [
     "src/**/*",
     "README.md"

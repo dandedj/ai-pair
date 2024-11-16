@@ -1,0 +1,90 @@
+# Dependency directories
+node_modules/
+
+# Logs and runtime data
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+jspm_packages/
+bower_components/
+
+# Build directories
+dist/
+build/
+.tmp/
+temp/
+tmp/
+
+# Coverage directory used by testing tools
+coverage/
+.nyc_output/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+out/
+.serverless/
+.fusebox/
+
+# Parcel-bundler cache
+.cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# ESLint cache
+.eslintcache
+
+# REPL history
+.node_repl_history
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# IDE/workspace settings
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Mac system files
+.DS_Store
+
+# Thumbnails
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Test reports
+test_output/
+
+# Vim swap files
+*.swp
+*.swo
+
+# Others
+.editorconfig 

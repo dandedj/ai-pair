@@ -1,0 +1,16 @@
+{
+  "name": "ai-pair-cli",
+  "version": "1.0.0",
+  "description": "Command Line Interface for AI Pair Programming",
+  "main": "src/AIPair.js",
+  "bin": {
+    "ai-pair": "./src/AIPair.js"
+  },
+  "dependencies": {
+    "ai-pair": "^1.0.0",
+    "minimist": "^1.2.5",
+  },
+  "scripts": {
+    "start": "node src/AIPair.js"
+  },
+} 
