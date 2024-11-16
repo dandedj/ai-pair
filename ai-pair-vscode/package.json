@@ -48,19 +48,62 @@
       ]
     },
     "configuration": {
-      "type": "object",
-      "title": "AI Pair Programmer Configuration",
+      "title": "AI Pair Settings",
       "properties": {
-        "aiPairProgrammer.model": {
+        "ai-pair.model": {
           "type": "string",
-          "default": "gpt-4",
-          "enum": ["gpt-4", "gpt-3.5-turbo"],
-          "description": "Select the AI model to use for pair programming."
+          "default": "gpt-4o",
+          "description": "AI Model to use for code generation.",
+          "enum": [
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-3.5-turbo",
+            "claude-3-5-sonnet",
+            "gemini-1.5-pro",
+            "gemini-2"
+          ]
         },
-        "aiPairProgrammer.rootDirectory": {
+        "ai-pair.extension": {
+          "type": "string",
+          "default": ".java",
+          "description": "File extension to target (e.g., .java, .js)."
+        },
+        "ai-pair.testDir": {
+          "type": "string",
+          "default": "src/test",
+          "description": "Relative path to the test directory."
+        },
+        "ai-pair.openaiApiKey": {
           "type": "string",
           "default": "",
-          "description": "Root directory for the AI Pair Programmer."
+          "description": "OpenAI API key."
+        },
+        "ai-pair.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key."
+        },
+        "ai-pair.geminiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Gemini API key."
+        },
+        "ai-pair.logLevel": {
+          "type": "string",
+          "default": "info",
+          "description": "Logging level.",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ]
+        },
+        "ai-pair.numRetries": {
+          "type": "number",
+          "default": 3,
+          "description": "Number of retries for code generation."
         }
       }
     }

@@ -8,12 +8,8 @@ class State {
     }
 
     initialize(configData) {
-        if (!this.config) {
-            this.config = new Config(configData);
-        }
-        if (!this.runningState) {
-            this.runningState = new RunningState();
-        }
+        this.config = new Config(configData);
+        this.runningState = new RunningState();
     }
 
     getConfig() {
@@ -25,8 +21,8 @@ class State {
     }
 
     updateConfig(newConfigData) {
-        // Update the existing config object with new data
-        Object.assign(this.config, newConfigData);
+        // Create a new Config object with updated data
+        this.config = new Config(newConfigData);
     }
 }
 
