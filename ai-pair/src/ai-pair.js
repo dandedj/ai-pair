@@ -1,32 +1,33 @@
-require("dotenv").config();
-const minimist = require("minimist");
 const path = require("path");
 const readline = require("readline-sync");
 const chokidar = require("chokidar");
 const fs = require("fs");
-const ChatGPTClient = require("./lib/ai/ChatGPTClient");
-const ClaudeClient = require("./lib/ai/ClaudeClient");
-const GeminiClient = require("./lib/ai/GeminiClient");
-const { parseAndApplyGeneratedCode } = require("./lib/CodeParser");
+const ChatGPTClient = require("./lib/ai/chatgpt-client");
+const ClaudeClient = require("./lib/ai/claude-client");
+const GeminiClient = require("./lib/ai/gemini-client");
+const { parseAndApplyGeneratedCode } = require("./lib/code-parser");
 const {
     collectFilesWithExtension,
     clearDirectory,
-} = require("./lib/FileUtils");
-const { runTests } = require("./lib/TestUtils");
-const { getLogger, isLoggerInitialized } = require('./lib/logger');
+} = require("./lib/file-utils");
+const AIClientFactory = require('./lib/ai-client-factory');
+const configData = require('./config');
+const TestRunner = require('./lib/test-runner');
+const CodeGenerator = require('./lib/code-generator');
+const { delay, startSpinner } = require('./lib/utils');
+const { logger } = require('./lib/logger');
 
-class AIPairRunner {
+class AIPair {
     constructor(config, runningState) {
-        this.config = config;
+        this.config = { ...config, ...configData };
         this.runningState = runningState;
-        this.logger = require('./lib/logger');
+        this.logger = logger;
+        this.testRunner = new TestRunner();
+        this.codeGenerator = new CodeGenerator(config, this.client, runningState, this.logger);
 
-        // Initialize logger
-        if (!isLoggerInitialized()) {
-            this.logger = getLogger(this.config.tmpDir);
-        } else {
-            this.logger = getLogger();
-        }
+        // Initialize AI client using the factory
+        const clientFactory = new AIClientFactory(config);
+        this.client = clientFactory.createClient(config.model);
 
         // AI model to client mapping
         this.models = {
@@ -38,11 +39,6 @@ class AIPairRunner {
             "gemini-1.5-pro": "gemini",
             "gemini-2": "gemini",
         };
-
-        // Initialize AI client
-        this.client = this.selectAIClient(this.getApiKeyForModel(this.config.model), this.config.model);
-
-        // Remove accumulatedHints from here, as it's now in RunningState
     }
 
     getApiKeyForModel(model) {
@@ -90,56 +86,45 @@ class AIPairRunner {
         // Perform code generation cycle and collect results
         const results = await this.performCodeGenerationCycle(force);
 
-        // Collect token usage
-        const tokenUsage = this.client.getTokenUsage();
-
         // Combine results
         return {
-            ...results,
-            tokenUsage,
+            results,
         };
     }
 
     /**
      * Performs a code generation cycle, including testing and applying AI-generated code.
      * @param {boolean} force - If true, forces code generation even if tests pass.
-     * @returns {Promise<Object>} - Detailed results of the code generation and testing process.
      */
     async performCodeGenerationCycle(force = false) {
-        let testResults;
-        let testOutput = "No test output yet.";
+        this.logger.debug("Starting code generation cycle");
+
+        // set the cycle start time
+        this.runningState.setCycleStartTime();
+
+        // Read build.gradle.kts file
+        const buildGradlePath = path.join(this.config.projectRoot, 'build.gradle.kts');
+        this.buildGradleContent = fs.existsSync(buildGradlePath)
+            ? fs.readFileSync(buildGradlePath, 'utf-8')
+            : '';
 
         if (!force) {
-            this.logger.debug(
-                "Performing initial tests to determine if changes are needed"
-            );
-            testResults = runTests(this.config.projectRoot, this.config.tmpDir);
-            testOutput = fs.readFileSync(
-                path.join(this.config.tmpDir, "test_output.txt"),
-                "utf-8"
-            );
+            this.logger.debug("Performing tests to determine if changes are needed");
+            this.testRunner.runTests(this.config, this.runningState);
 
-            if (testResults.testsPassed) {
-                this.logger.info(
-                    "Project compiles and all tests passed! No changes needed."
-                );
-                return {
-                    ...testResults,
-                    filesChanged: 0,
-                    filesAdded: 0,
-                    meaningfulChanges: 0,
-                    changedFiles: [],
-                    newFiles: [],
-                };
+            // if the build didn't compile, we need to generate code
+            if (this.runningState.buildState.compiledSuccessfully === false) {
+                this.logger.info("Project compilation failed!");
+            } else if (this.runningState.testsPassed) {
+                this.logger.info("Project compiles and all tests passed! No changes needed.");
+                return; // Exit the method as no further action is needed
             }
         } else {
-            testResults = {
+            this.runningState.testResults = {
                 compilationFailed: false,
                 failedTests: [],
                 testsPassed: true,
             };
-            testOutput =
-                "Tests are passing, but user requested code generation.";
         }
 
         this.logger.debug("Collecting files for code generation");
@@ -151,7 +136,7 @@ class AIPairRunner {
         );
 
         // Collect test files based on test results
-        const testFiles = this.collectTestFiles(testResults, force);
+        const testFiles = this.collectTestFiles(force);
 
         this.logger.debug(
             `${codeFiles.length} code files and ${testFiles.length} test files will be used for code generation`
@@ -164,7 +149,7 @@ class AIPairRunner {
             })
             .join("\n\n");
 
-        const prompt = this.constructPrompt(testResults, testOutput, filesContent);
+        const prompt = this.constructPrompt(filesContent);
 
         // Log the prompt to session log
         const sessionLogFilePath = path.join(this.config.tmpDir, "session_log.txt");
@@ -180,57 +165,49 @@ class AIPairRunner {
 
         // Parse and apply the generated code
         const codeChanges = parseAndApplyGeneratedCode(
-            this.config.projectRoot,
-            this.config.tmpDir,
-            this.config.extension,
-            generatedCode
+            this.config,
+            generatedCode,
+            this.runningState
         );
 
+        // Update runningState with code changes
+        this.runningState.codeChanges = codeChanges;
+        this.runningState.generationCycles++;
         // Run tests again after applying changes
-        this.logger.debug("Running tests after applying AI-generated code");
-        testResults = runTests(this.config.projectRoot, this.config.tmpDir);
+        this.logger.debug("Retrying tests after applying AI-generated code");
+        this.testRunner.runTests(this.config, this.runningState);
 
-        if (!testResults.testsPassed) {
-            testOutput = fs.readFileSync(
-                path.join(this.config.tmpDir, "test_output.txt"),
-                "utf-8"
-            );
-            this.logger.debug("Tests failed after applying AI changes");
-        } else {
-            this.logger.debug("All tests passed after applying AI changes");
+        // show if the tests passed and the project compiled successfully
+        this.logger.info(`Tests passed: ${this.runningState.testResults.testsPassed}`);
+
+        if (!this.runningState.testResults.testsPassed) {
+            // log the last run output
+            this.logger.info(`Last run output: ${this.runningState.lastRunOutput}`);
         }
-
-        // Combine and return results
-        return {
-            ...testResults,
-            ...codeChanges,
-            testOutput,
-        };
+        this.logger.info(`Project compiled successfully: ${this.runningState.buildState.compiledSuccessfully}`);
     }
 
     /**
      * Collects test files based on test results and force flag.
-     * @param {Object} testResults - The results from running tests.
      * @param {boolean} force - If true, collect all test files.
      * @returns {Array} - Array of test file objects.
      */
-    collectTestFiles(testResults, force) {
+    collectTestFiles(force) {
         let testFiles = [];
 
-        if (testResults.compilationFailed) {
+        if (this.runningState.buildState.compiledSuccessfully === false) {
             // Include all test files if compilation failed
             testFiles = collectFilesWithExtension(
-                [path.join(this.config.projectRoot, "src/test/java")],
+                [this.config.testDir],
                 this.config.extension
             );
-        } else if (!testResults.testsPassed) {
+        } else if (!this.runningState.testResults.testsPassed) {
             // Include only the failed test files
-            testFiles = testResults.failedTests.map((test) => {
+            testFiles = this.runningState.testResults.failedTests.map((test) => {
                 const className = this.extractClassNameFromTest(test);
                 const testFilePath = path.join(
-                    this.config.projectRoot,
-                    "src/test/java",
-                    className.replace(/\./g, "/") + ".java"
+                    this.config.testDir,
+                    className.replace(/\./g, "/") + this.config.extension
                 );
                 this.logger.debug(`Constructed test file path: ${testFilePath}`);
 
@@ -244,7 +221,7 @@ class AIPairRunner {
         } else if (force) {
             // Include all test files if forced
             testFiles = collectFilesWithExtension(
-                [path.join(this.config.projectRoot, "src/test/java")],
+                [path.join(this.config.testDir)],
                 this.config.extension
             );
         }
@@ -278,15 +255,13 @@ class AIPairRunner {
 
     /**
      * Constructs the prompt to be sent to the AI client.
-     * @param {Object} testResults - The results from running tests.
-     * @param {string} testOutput - The output from running tests.
      * @param {string} filesContent - The content of the code and test files.
      * @returns {string} - The constructed prompt.
      */
-    constructPrompt(testResults, testOutput, filesContent) {
+    constructPrompt(filesContent) {
         let prompt;
 
-        if (testResults.testsPassed) {
+        if (this.runningState.testResults.testsPassed) {
             // Use no-issue prompt from config
             prompt = this.config.noIssuePromptTemplate
                 .replace("{filesContent}", filesContent)
@@ -298,7 +273,7 @@ class AIPairRunner {
         } else {
             // Use issue prompt from config
             prompt = this.config.promptTemplate
-                .replace("{testOutput}", testOutput)
+                .replace("{testOutput}", this.runningState.lastRunOutput)
                 .replace("{filesContent}", filesContent)
                 .replace("{buildGradleContent}", this.buildGradleContent);
 
@@ -316,7 +291,7 @@ class AIPairRunner {
      * @returns {Promise<string>} - The generated code from the AI client.
      */
     async generateCodeWithRetries(prompt) {
-        const spinner = this.startSpinner("Generating code");
+        const spinner = startSpinner('Generating code');
         let generatedCode;
         const maxAttempts = this.config.numRetries || 3;
 
@@ -325,77 +300,115 @@ class AIPairRunner {
                 generatedCode = await this.client.generateCode(
                     prompt,
                     this.config.tmpDir,
-                    this.config.systemPrompt // Use systemPrompt from config
+                    this.config.systemPrompt
                 );
                 break; // Success
             } catch (error) {
-                this.logger.error(
-                    `Error generating code (attempt ${attempts}): ${error.message}`
-                );
+                this.logger.error(`Error generating code (attempt ${attempts}): ${error.message}`);
                 if (attempts < maxAttempts) {
-                    console.log("Retrying code generation...");
-                    await this.delay(1000); // Wait before retrying
+                    this.logger.info('Retrying code generation...');
+                    await delay(1000); // Wait before retrying
                 } else {
                     clearInterval(spinner);
-                    throw new Error("Failed to generate code after multiple attempts.");
+                    throw new Error('Failed to generate code after multiple attempts.');
                 }
             }
         }
         clearInterval(spinner);
-
         return generatedCode;
     }
 
     /**
-     * Starts a simple console spinner.
-     * @param {string} message - The message to display with the spinner.
-     * @returns {NodeJS.Timeout} - The interval ID for the spinner.
+     * Runs the AI pair programming process with user interaction.
      */
-    startSpinner(message) {
-        const spinnerChars = ["|", "/", "-", "\\"];
-        let index = 0;
-        process.stdout.write(message);
+    async runWithInteraction() {
+        logger.info(`Starting AI Pair Runner with model: ${this.config.model}`);
 
-        return setInterval(() => {
-            process.stdout.write(`\r${message} ${spinnerChars[index]}`);
-            index = (index + 1) % spinnerChars.length;
-        }, 100);
-    }
+        // validate that the runningState is initialized
+        if (!this.runningState) {
+            console.log("RunningState is not initialized, initializing...");
+            // initialize the runningState
+            this.runningState = new RunningState();
+        }
 
-    /**
-     * Delays execution for the specified time.
-     * @param {number} ms - The number of milliseconds to wait.
-     * @returns {Promise<void>}
-     */
-    delay(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
+        let exit = false;
 
-    /**
-     * Adds a hint to be used in the next code generation cycle.
-     * @param {string} hint - The hint to add.
-     */
-    addHint(hint) {
-        if (hint) {
-            this.runningState.accumulatedHints.push(hint);
-            this.logger.debug(`Added hint: ${hint}`);
+        while (!exit) {
+            // Run a code generation cycle
+            await this.performCodeGenerationCycle();
+
+            // Prompt for the next action
+            console.log('\nSelect an action:');
+            console.log('c - Continue and force code generation');
+            console.log('w - Watch code files for changes');
+            console.log('h - Provide a hint');
+            console.log('x or e - Exit');
+            const action = readline.question('Enter your choice: ');
+
+            switch (action.toLowerCase()) {
+                case 'c':
+                    logger.info('Forcing code generation...');
+                    await this.performCodeGenerationCycle(true); // Force code generation
+                    break;
+                case 'w':
+                    logger.info('Starting to watch for file changes...');
+                    await this.watchForChanges();
+                    break;
+                case 'h':
+                    const hint = readline.question('Enter your hint: ');
+                    this.runningState.addHint(hint);
+                    await this.performCodeGenerationCycle(true); // Run after adding hint
+                    break;
+                case 'x':
+                case 'e':
+                    logger.info('Exiting AI Pair Runner.');
+                    exit = true;
+                    break;
+                default:
+                    console.log('Invalid choice. Please try again.');
+            }
         }
     }
 
     /**
-     * Clears all accumulated hints.
+     * Watches the code files for changes and runs a code generation cycle when changes occur.
      */
-    clearHints() {
-        this.runningState.accumulatedHints = [];
-    }
+    async watchForChanges() {
+        logger.info('Watching for file changes...');
+        return new Promise((resolve) => {
+            const watcher = chokidar.watch(this.config.projectRoot, {
+                ignored: /(^|[\/\\])\../, // ignore dotfiles
+                ignoreInitial: false,
+                depth:  undefined,
+                persistent: true,
+            });
 
-    async run() {
-        this.logger.info(`Starting AI Pair Runner with model: ${this.config.model}`);
-        // Use this.config and this.runningState throughout the method
-        // For example:
-        this.logger.info(`Starting AI Pair Runner with model: ${this.config.model}`);
-        // ... existing code ...
+            // log the directory that is being watched
+            logger.info(`Watching directory: ${this.config.projectRoot}`);
+
+            watcher.on('change', async (filePath) => {
+                logger.info(`File changed: ${filePath}`);
+                // Run code generation
+                await this.performCodeGenerationCycle();
+            });
+
+            // Allow the user to stop watching
+            console.log('Press "x" or "e" and Enter to stop watching for changes.');
+
+            const checkForExit = () => {
+                const input = readline.question('');
+                if (input.toLowerCase() === 'x' || input.toLowerCase() === 'e') {
+                    watcher.close();
+                    logger.info('Stopped watching for file changes.');
+                    resolve();
+                } else {
+                    checkForExit();
+                }
+            };
+
+            checkForExit();
+        });
     }
 }
 
-module.exports = AIPairRunner;
+module.exports = AIPair;

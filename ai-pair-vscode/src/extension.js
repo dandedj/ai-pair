@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const SidebarProvider = require('./core/SidebarProvider');
+const SidebarProvider = require('./core/sidebar-provider');
 
 function activate(context) {
     console.log('AI Pair Programmer extension is now active!');

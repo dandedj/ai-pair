@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const state = require('./src/core/State');
+const state = require('./src/core/state');
 
 function activate(context) {
     const rootDirectory = vscode.workspace.workspaceFolders[0].uri.fsPath;

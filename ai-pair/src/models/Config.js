@@ -1,80 +1,68 @@
 const path = require('path');
+const fs = require('fs');
+const { logger } = require('../lib/logger');
 
 class Config {
     constructor(configData) {
-        // Validate 'model'
-        if (!configData.model || typeof configData.model !== 'string') {
-            throw new Error("Invalid 'model' parameter. Please provide a valid model name.");
-        }
         this.model = configData.model;
-
-        // Validate 'projectRoot'
-        if (!configData.projectRoot || typeof configData.projectRoot !== 'string') {
-            throw new Error("Invalid 'projectRoot' parameter. Please provide a valid project root path.");
-        }
         this.projectRoot = path.resolve(configData.projectRoot);
-
-        // Validate 'extension'
-        if (!configData.extension || typeof configData.extension !== 'string') {
-            throw new Error("Invalid 'extension' parameter. Please provide a valid file extension (e.g., '.java').");
-        }
-        this.extension = configData.extension;
-
-        // Validate 'testDir'
-        if (!configData.testDir || typeof configData.testDir !== 'string') {
-            throw new Error("Invalid 'testDir' parameter. Please provide a valid test directory path.");
-        }
-        this.testDir = path.resolve(this.projectRoot, configData.testDir);
-
-        // Validate API Keys
+        this.extension = configData.extension || '.java';
+        this.testDir = path.resolve(this.projectRoot, configData.testDir || 'src/test');
         this.apiKeys = {
-            anthropic: configData.ANTHROPIC_API_KEY,
-            openai: configData.OPENAI_API_KEY,
-            gemini: configData.GEMINI_API_KEY,
+            anthropic: configData.anthropicApiKey || process.env.ANTHROPIC_API_KEY,
+            openai: configData.openaiApiKey || process.env.OPENAI_API_KEY,
+            gemini: configData.geminiApiKey || process.env.GEMINI_API_KEY,
         };
-        if (!this.apiKeys.anthropic && !this.apiKeys.openai && !this.apiKeys.gemini) {
-            throw new Error("No API keys provided. Please provide at least one API key for the AI services.");
+
+        // make sure that the apiKeys object has all the required keys
+        if (!this.apiKeys.anthropic || !this.apiKeys.openai || !this.apiKeys.gemini) {
+            throw new Error("API keys are not provided");
+        }
+        
+
+        // throw an error if logLevel is not provided
+        if (!configData.logLevel) {
+            throw new Error("Log level is not provided");
         }
 
-        // Validate 'logLevel'
-        if (!configData.LOG_LEVEL || typeof configData.LOG_LEVEL !== 'string') {
-            throw new Error("Invalid 'LOG_LEVEL' parameter. Please provide a valid log level (e.g., 'info', 'debug').");
+        this.logLevel = configData.logLevel || 'info';
+        // throw an error if tmpDir is not provided 
+        if (!configData.tmpDir) {
+            throw new Error("Tmp directory is not provided");
         }
-        this.logLevel = configData.LOG_LEVEL;
 
-        // Validate 'tmpDir'
-        if (!configData.tmpDir || typeof configData.tmpDir !== 'string') {
-            throw new Error("Invalid 'tmpDir' parameter. Please provide a valid temporary directory path.");
-        }
-        this.tmpDir = path.resolve(configData.tmpDir);
+        this.tmpDir = configData.tmpDir;
 
-        // Validate 'promptsPath'
-        if (!configData.promptsPath || typeof configData.promptsPath !== 'string') {
-            throw new Error("Invalid 'promptsPath' parameter. Please provide a valid prompts directory path.");
-        }
-        this.promptsPath = path.resolve(configData.promptsPath);
+        this.promptsPath = configData.promptsPath || path.join(__dirname, '../prompts');
+        this.numRetries = configData.numRetries || 3;
 
-        // Validate 'numRetries'
-        if (!Number.isInteger(configData.numRetries) || configData.numRetries < 1) {
-            throw new Error("Invalid 'numRetries' parameter. Please provide a positive integer.");
+        // Validate that the projectRoot exists
+        if (!fs.existsSync(this.projectRoot)) {
+            throw new Error(`Project root directory not found at path: ${this.projectRoot}`);
         }
-        this.numRetries = configData.numRetries;
 
-        // Ensure system prompts are provided
-        if (!configData.systemPrompt || typeof configData.systemPrompt !== 'string') {
-            throw new Error("Missing 'systemPrompt'. Please provide the system prompt content.");
+        // Validate that the promptsPath exists
+        if (!fs.existsSync(this.promptsPath)) {
+            throw new Error(`Prompts directory not found at path: ${this.promptsPath}`);
         }
-        this.systemPrompt = configData.systemPrompt;
 
-        if (!configData.promptTemplate || typeof configData.promptTemplate !== 'string') {
-            throw new Error("Missing 'promptTemplate'. Please provide the prompt template content.");
-        }
-        this.promptTemplate = configData.promptTemplate;
+        // Load prompt templates
+        this.systemPrompt = this.loadPromptFile('system_prompt.txt');
+        this.promptTemplate = this.loadPromptFile('prompt_template.txt');
+        this.noIssuePromptTemplate = this.loadPromptFile('no_issue_prompt_template.txt');
+    }
 
-        if (!configData.noIssuePromptTemplate || typeof configData.noIssuePromptTemplate !== 'string') {
-            throw new Error("Missing 'noIssuePromptTemplate'. Please provide the no-issue prompt template content.");
+    /**
+     * Helper method to load a prompt file from the prompts directory.
+     * @param {string} fileName - The name of the prompt file.
+     * @returns {string} - The content of the prompt file.
+     */
+    loadPromptFile(fileName) {
+        const filePath = path.join(this.promptsPath, fileName);
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`Prompt file not found at path: ${filePath}`);
         }
-        this.noIssuePromptTemplate = configData.noIssuePromptTemplate;
+        return fs.readFileSync(filePath, 'utf-8');
     }
 }
 

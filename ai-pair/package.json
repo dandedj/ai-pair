@@ -2,7 +2,7 @@
   "name": "ai-pair",
   "version": "1.0.0",
   "description": "Core library for AI Pair Programming",
-  "main": "src/AIPairRunner.js",
+  "main": "index.js",
   "files": [
     "src/**/*",
     "README.md"
@@ -11,7 +11,9 @@
     "axios": "^1.7.2",
     "winston": "^3.10.0",
     "xml2js": "^0.6.2",
-    "ai-pair": "file:../ai-pair"
+    "ai-pair": "file:../ai-pair",
+    "readline-sync": "^1.4.10",
+    "chokidar": "^3.5.3"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.14.1",
