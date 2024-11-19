@@ -34,6 +34,10 @@ function loadCommandLineConfig() {
         parsedArgs['promptsPath'] = path.resolve(parsedArgs['promptsPath']);
     }
 
+    if (parsedArgs['tmpDir']) {
+        parsedArgs['tmpDir'] = path.resolve(parsedArgs['tmpDir']);
+    }
+
     console.log('Parsed Args:', parsedArgs);
 
     // Return the parsed configuration data

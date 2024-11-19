@@ -127,6 +127,12 @@ class AIPair {
             };
         }
 
+        // if the project builds and all tests pass, then return, unless we are forcing
+        if (this.runningState.buildState.compiledSuccessfully && this.runningState.testResults.testsPassed && !force) {
+            this.logger.info("Project compiles and all tests passed! No changes needed.");
+            return;
+        }
+
         this.logger.debug("Collecting files for code generation");
 
         // Collect code files
@@ -374,39 +380,49 @@ class AIPair {
      * Watches the code files for changes and runs a code generation cycle when changes occur.
      */
     async watchForChanges() {
-        logger.info('Watching for file changes...');
+        this.logger.info('Watching for file changes...');
         return new Promise((resolve) => {
-            const watcher = chokidar.watch(this.config.projectRoot, {
-                ignored: /(^|[\/\\])\../, // ignore dotfiles
-                ignoreInitial: false,
-                depth:  undefined,
+            const projectRootPath = path.join(path.resolve(this.config.projectRoot), 'src/main/java');
+
+            // Log the project root path being watched
+            this.logger.info(`Project root being watched: ${projectRootPath}`);
+
+            const watcher = chokidar.watch(projectRootPath, {
                 persistent: true,
             });
 
-            // log the directory that is being watched
-            logger.info(`Watching directory: ${this.config.projectRoot}`);
+            // Log the directories and files being watched
+            watcher.on('ready', () => {
+                this.logger.info('Initial scan complete. Ready for changes.');
+                const watchedPaths = watcher.getWatched();
+                for (const dir in watchedPaths) {
+                    watchedPaths[dir].forEach((file) => {
+                        this.logger.debug(`Watching: ${path.join(dir, file)}`);
+                    });
+                }
+            });
 
             watcher.on('change', async (filePath) => {
-                logger.info(`File changed: ${filePath}`);
+                this.logger.info(`File changed: ${filePath}`);
                 // Run code generation
                 await this.performCodeGenerationCycle();
             });
 
-            // Allow the user to stop watching
-            console.log('Press "x" or "e" and Enter to stop watching for changes.');
+            watcher.on('add', async (filePath) => {
+                this.logger.info(`File added: ${filePath}`);
+                // Run code generation
+                await this.performCodeGenerationCycle();
+            });
 
-            const checkForExit = () => {
-                const input = readline.question('');
-                if (input.toLowerCase() === 'x' || input.toLowerCase() === 'e') {
-                    watcher.close();
-                    logger.info('Stopped watching for file changes.');
-                    resolve();
-                } else {
-                    checkForExit();
-                }
-            };
+            watcher.on('unlink', async (filePath) => {
+                this.logger.info(`File removed: ${filePath}`);
+                // Run code generation
+                await this.performCodeGenerationCycle();
+            });
 
-            checkForExit();
+            watcher.on('error', (error) => {
+                this.logger.error(`Watcher error: ${error}`);
+            });
         });
     }
 }

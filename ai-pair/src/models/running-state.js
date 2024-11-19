@@ -89,6 +89,7 @@ class RunningState {
             compiledSuccessfully: false,
             lastCompileTime: null,
         };
+        this.lastRunOutput = null;
     }
 }
 

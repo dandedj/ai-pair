@@ -11,6 +11,9 @@ const configData = loadCommandLineConfig();
 // Set default log level to 'debug' if not specified
 configData.logLevel = configData.logLevel || 'debug';
 
+// Resolve tmpDir to an absolute path
+configData.tmpDir = path.resolve(configData.tmpDir);
+
 // Configure the logger with settings from configData
 configureLogger({ logDirectory: configData.tmpDir, logLevel: configData.logLevel });
 
