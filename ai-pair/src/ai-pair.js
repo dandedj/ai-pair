@@ -10,8 +10,9 @@ const {
     collectFilesWithExtension,
     clearDirectory,
 } = require("./lib/file-utils");
-const AIClientFactory = require("./lib/ai-client-factory");
-const configData = require("./config");
+const AIClientFactory = require("./lib/ai/ai-client-factory");
+const configData = require("./models/config");
+const RunningState = require("./models/running-state");
 const TestRunner = require("./lib/test-runner");
 const CodeGenerator = require("./lib/code-generator");
 const { delay, startSpinner } = require("./lib/utils");
@@ -24,8 +25,8 @@ class AIPair {
         this.logger = logger;
 
         // Initialize AI client using the factory
-        const clientFactory = new AIClientFactory(this.config);
-        this.client = clientFactory.createClient(this.config.model);
+        const clientFactory = new AIClientFactory();
+        this.client = clientFactory.createClient(this.config);
 
         // Initialize CodeGenerator without config and runningState
         this.codeGenerator = new CodeGenerator(this.client);

@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const { logger } = require('../lib/logger');
 
 class Config {
     constructor(configData) {
