@@ -10,24 +10,28 @@ const {
     collectFilesWithExtension,
     clearDirectory,
 } = require("./lib/file-utils");
-const AIClientFactory = require('./lib/ai-client-factory');
-const configData = require('./config');
-const TestRunner = require('./lib/test-runner');
-const CodeGenerator = require('./lib/code-generator');
-const { delay, startSpinner } = require('./lib/utils');
-const { logger } = require('./lib/logger');
+const AIClientFactory = require("./lib/ai-client-factory");
+const configData = require("./config");
+const TestRunner = require("./lib/test-runner");
+const CodeGenerator = require("./lib/code-generator");
+const { delay, startSpinner } = require("./lib/utils");
+const { logger } = require("./lib/logger");
 
 class AIPair {
     constructor(config, runningState) {
         this.config = { ...config, ...configData };
         this.runningState = runningState;
         this.logger = logger;
-        this.testRunner = new TestRunner();
-        this.codeGenerator = new CodeGenerator(config, this.client, runningState, this.logger);
 
         // Initialize AI client using the factory
-        const clientFactory = new AIClientFactory(config);
-        this.client = clientFactory.createClient(config.model);
+        const clientFactory = new AIClientFactory(this.config);
+        this.client = clientFactory.createClient(this.config.model);
+
+        // Initialize CodeGenerator without config and runningState
+        this.codeGenerator = new CodeGenerator(this.client);
+
+        // Instantiate TestRunner without config and runningState
+        this.testRunner = new TestRunner();
 
         // AI model to client mapping
         this.models = {
@@ -73,15 +77,18 @@ class AIPair {
      * @returns {Promise<Object>} - Detailed results of the code generation and testing process.
      */
     async runWithoutInteraction(force = false) {
-        this.logger.debug('Clearing temporary directories');
+        this.logger.debug("Clearing temporary directories");
         clearDirectory(this.config.tmpDir);
-        clearDirectory(path.join(this.config.tmpDir, 'archive', 'versions'));
+        clearDirectory(path.join(this.config.tmpDir, "archive", "versions"));
 
-        this.logger.debug('Reading build.gradle.kts file');
-        const buildGradlePath = path.join(this.config.projectRoot, 'build.gradle.kts');
+        this.logger.debug("Reading build.gradle.kts file");
+        const buildGradlePath = path.join(
+            this.config.projectRoot,
+            "build.gradle.kts"
+        );
         this.buildGradleContent = fs.existsSync(buildGradlePath)
-            ? fs.readFileSync(buildGradlePath, 'utf-8')
-            : '';
+            ? fs.readFileSync(buildGradlePath, "utf-8")
+            : "";
 
         // Perform code generation cycle and collect results
         const results = await this.performCodeGenerationCycle(force);
@@ -99,25 +106,32 @@ class AIPair {
     async performCodeGenerationCycle(force = false) {
         this.logger.debug("Starting code generation cycle");
 
-        // set the cycle start time
+        // Set the cycle start time
         this.runningState.setCycleStartTime();
 
         // Read build.gradle.kts file
-        const buildGradlePath = path.join(this.config.projectRoot, 'build.gradle.kts');
+        const buildGradlePath = path.join(
+            this.config.projectRoot,
+            "build.gradle.kts"
+        );
         this.buildGradleContent = fs.existsSync(buildGradlePath)
-            ? fs.readFileSync(buildGradlePath, 'utf-8')
-            : '';
+            ? fs.readFileSync(buildGradlePath, "utf-8")
+            : "";
 
         if (!force) {
-            this.logger.debug("Performing tests to determine if changes are needed");
+            this.logger.debug(
+                "Performing tests to determine if changes are needed"
+            );
             this.testRunner.runTests(this.config, this.runningState);
 
-            // if the build didn't compile, we need to generate code
+            // If the build didn't compile, we need to generate code
             if (this.runningState.buildState.compiledSuccessfully === false) {
                 this.logger.info("Project compilation failed!");
-            } else if (this.runningState.testsPassed) {
-                this.logger.info("Project compiles and all tests passed! No changes needed.");
-                return; // Exit the method as no further action is needed
+            } else if (this.runningState.testResults.testsPassed) {
+                this.logger.info(
+                    "Project compiles and all tests passed! No changes needed."
+                );
+                return; 
             }
         } else {
             this.runningState.testResults = {
@@ -127,9 +141,15 @@ class AIPair {
             };
         }
 
-        // if the project builds and all tests pass, then return, unless we are forcing
-        if (this.runningState.buildState.compiledSuccessfully && this.runningState.testResults.testsPassed && !force) {
-            this.logger.info("Project compiles and all tests passed! No changes needed.");
+        // If the project builds and all tests pass, then return, unless we are forcing
+        if (
+            this.runningState.buildState.compiledSuccessfully &&
+            this.runningState.testResults.testsPassed &&
+            !force
+        ) {
+            this.logger.info(
+                "Project compiles and all tests passed! No changes needed."
+            );
             return;
         }
 
@@ -150,19 +170,15 @@ class AIPair {
 
         const filesContent = [...codeFiles, ...testFiles]
             .map((file) => {
-                const relativePath = path.relative(this.config.projectRoot, file.path);
+                const relativePath = path.relative(
+                    this.config.projectRoot,
+                    file.path
+                );
                 return `File: ${relativePath}\n\n${file.content}`;
             })
             .join("\n\n");
 
         const prompt = this.constructPrompt(filesContent);
-
-        // Log the prompt to session log
-        const sessionLogFilePath = path.join(this.config.tmpDir, "session_log.txt");
-        fs.appendFileSync(
-            sessionLogFilePath,
-            `Prompt at ${new Date().toISOString()}:\n${prompt}\n\n`
-        );
 
         this.logger.debug("Sending prompt to AI service");
 
@@ -170,27 +186,34 @@ class AIPair {
         const generatedCode = await this.generateCodeWithRetries(prompt);
 
         // Parse and apply the generated code
-        const codeChanges = parseAndApplyGeneratedCode(
-            this.config,
+        const codeChanges = this.codeGenerator.applyGeneratedCode(
             generatedCode,
+            this.config,
             this.runningState
         );
 
         // Update runningState with code changes
         this.runningState.codeChanges = codeChanges;
         this.runningState.generationCycles++;
+
         // Run tests again after applying changes
         this.logger.debug("Retrying tests after applying AI-generated code");
         this.testRunner.runTests(this.config, this.runningState);
 
-        // show if the tests passed and the project compiled successfully
-        this.logger.info(`Tests passed: ${this.runningState.testResults.testsPassed}`);
+        // Show if the tests passed and the project compiled successfully
+        this.logger.info(
+            `Tests passed: ${this.runningState.testResults.testsPassed}`
+        );
 
         if (!this.runningState.testResults.testsPassed) {
-            // log the last run output
-            this.logger.info(`Last run output: ${this.runningState.lastRunOutput}`);
+            // Log the last run output
+            this.logger.info(
+                `Last run output: ${this.runningState.lastRunOutput}`
+            );
         }
-        this.logger.info(`Project compiled successfully: ${this.runningState.buildState.compiledSuccessfully}`);
+        this.logger.info(
+            `Project compiled successfully: ${this.runningState.buildState.compiledSuccessfully}`
+        );
     }
 
     /**
@@ -209,21 +232,25 @@ class AIPair {
             );
         } else if (!this.runningState.testResults.testsPassed) {
             // Include only the failed test files
-            testFiles = this.runningState.testResults.failedTests.map((test) => {
-                const className = this.extractClassNameFromTest(test);
-                const testFilePath = path.join(
-                    this.config.testDir,
-                    className.replace(/\./g, "/") + this.config.extension
-                );
-                this.logger.debug(`Constructed test file path: ${testFilePath}`);
+            testFiles = this.runningState.testResults.failedTests.map(
+                (test) => {
+                    const className = this.extractClassNameFromTest(test);
+                    const testFilePath = path.join(
+                        this.config.testDir,
+                        className.replace(/\./g, "/") + this.config.extension
+                    );
+                    this.logger.debug(
+                        `Constructed test file path: ${testFilePath}`
+                    );
 
-                return {
-                    path: testFilePath,
-                    content: fs.existsSync(testFilePath)
-                        ? fs.readFileSync(testFilePath, "utf-8")
-                        : "",
-                };
-            });
+                    return {
+                        path: testFilePath,
+                        content: fs.existsSync(testFilePath)
+                            ? fs.readFileSync(testFilePath, "utf-8")
+                            : "",
+                    };
+                }
+            );
         } else if (force) {
             // Include all test files if forced
             testFiles = collectFilesWithExtension(
@@ -274,7 +301,9 @@ class AIPair {
                 .replace("{buildGradleContent}", this.buildGradleContent);
 
             if (this.runningState.accumulatedHints.length > 0) {
-                prompt += `\n\nUser hints: ${this.runningState.accumulatedHints.join("; ")}`;
+                prompt += `\n\nUser hints: ${this.runningState.accumulatedHints.join(
+                    "; "
+                )}`;
             }
         } else {
             // Use issue prompt from config
@@ -284,7 +313,9 @@ class AIPair {
                 .replace("{buildGradleContent}", this.buildGradleContent);
 
             if (this.runningState.accumulatedHints.length > 0) {
-                prompt += `\n\nHints for improvement: ${this.runningState.accumulatedHints.join("; ")}`;
+                prompt += `\n\nHints for improvement: ${this.runningState.accumulatedHints.join(
+                    "; "
+                )}`;
             }
         }
 
@@ -297,26 +328,29 @@ class AIPair {
      * @returns {Promise<string>} - The generated code from the AI client.
      */
     async generateCodeWithRetries(prompt) {
-        const spinner = startSpinner('Generating code');
+        const spinner = startSpinner("Generating code");
         let generatedCode;
         const maxAttempts = this.config.numRetries || 3;
 
         for (let attempts = 1; attempts <= maxAttempts; attempts++) {
             try {
-                generatedCode = await this.client.generateCode(
+                generatedCode = await this.codeGenerator.generateCode(
                     prompt,
-                    this.config.tmpDir,
-                    this.config.systemPrompt
+                    this.config
                 );
                 break; // Success
             } catch (error) {
-                this.logger.error(`Error generating code (attempt ${attempts}): ${error.message}`);
+                this.logger.error(
+                    `Error generating code (attempt ${attempts}): ${error.message}`
+                );
                 if (attempts < maxAttempts) {
-                    this.logger.info('Retrying code generation...');
+                    this.logger.info("Retrying code generation...");
                     await delay(1000); // Wait before retrying
                 } else {
                     clearInterval(spinner);
-                    throw new Error('Failed to generate code after multiple attempts.');
+                    throw new Error(
+                        "Failed to generate code after multiple attempts."
+                    );
                 }
             }
         }
@@ -337,63 +371,69 @@ class AIPair {
             this.runningState = new RunningState();
         }
 
+        await this.performCodeGenerationCycle();
+
         let exit = false;
 
         while (!exit) {
             // Run a code generation cycle
-            await this.performCodeGenerationCycle();
+            
 
             // Prompt for the next action
-            console.log('\nSelect an action:');
-            console.log('c - Continue and force code generation');
-            console.log('w - Watch code files for changes');
-            console.log('h - Provide a hint');
-            console.log('x or e - Exit');
-            const action = readline.question('Enter your choice: ');
+            console.log("\nSelect an action:");
+            console.log("c or [enter]- Continue and force code generation");
+            console.log("w - Watch code files for changes");
+            console.log("h - Provide a hint");
+            console.log("x or e - Exit");
+            const action = readline.question("Enter your choice: ");
 
             switch (action.toLowerCase()) {
-                case 'c':
-                    logger.info('Forcing code generation...');
+                case "c":
+                    logger.info("Forcing code generation...");
                     await this.performCodeGenerationCycle(true); // Force code generation
                     break;
-                case 'w':
-                    logger.info('Starting to watch for file changes...');
+                case "w":
+                    logger.info("Starting to watch for file changes...");
                     await this.watchForChanges();
                     break;
-                case 'h':
-                    const hint = readline.question('Enter your hint: ');
+                case "h":
+                    const hint = readline.question("Enter your hint: ");
                     this.runningState.addHint(hint);
                     await this.performCodeGenerationCycle(true); // Run after adding hint
                     break;
-                case 'x':
-                case 'e':
-                    logger.info('Exiting AI Pair Runner.');
+                case "x":
+                case "e":
+                    logger.info("Exiting AI Pair Runner.");
                     exit = true;
                     break;
                 default:
-                    console.log('Invalid choice. Please try again.');
+                    console.log("Invalid choice. Please try again.");
             }
         }
     }
 
     /**
-     * Watches the code files for changes and runs a code generation cycle when changes occur.
+     * Watches the source and test directories for changes and runs a code generation cycle when changes occur.
      */
     async watchForChanges() {
-        this.logger.info('Watching for file changes...');
+        this.logger.info("Watching for file changes...");
         return new Promise((resolve) => {
-            const projectRootPath = path.join(path.resolve(this.config.projectRoot), 'src/main/java');
+            // Get absolute paths for srcDir and testDir
+            const srcDirPath = path.resolve(this.config.srcDir);
+            const testDirPath = path.resolve(this.config.testDir);
 
-            // Log the project root path being watched
-            this.logger.info(`Project root being watched: ${projectRootPath}`);
+            // Log the directories being watched
+            this.logger.info(`Source directory being watched: ${srcDirPath}`);
+            this.logger.info(`Test directory being watched: ${testDirPath}`);
 
-            const watcher = chokidar.watch(projectRootPath, {
+            // Initialize the watcher with both directories
+            const watcher = chokidar.watch([srcDirPath, testDirPath], {
                 persistent: true,
             });
 
             // Log the directories and files being watched
-            watcher.on('ready', () => {
-                this.logger.info('Initial scan complete. Ready for changes.');
+            watcher.on("ready", () => {
+                this.logger.info("Initial scan complete. Ready for changes.");
                 const watchedPaths = watcher.getWatched();
                 for (const dir in watchedPaths) {
                     watchedPaths[dir].forEach((file) => {
@@ -402,27 +442,44 @@ class AIPair {
                 }
             });
 
-            watcher.on('change', async (filePath) => {
+            // Set up event listeners for file changes
+            watcher.on("change", async (filePath) => {
                 this.logger.info(`File changed: ${filePath}`);
                 // Run code generation
                 await this.performCodeGenerationCycle();
             });
 
-            watcher.on('add', async (filePath) => {
+            watcher.on("add", async (filePath) => {
                 this.logger.info(`File added: ${filePath}`);
                 // Run code generation
                 await this.performCodeGenerationCycle();
             });
 
-            watcher.on('unlink', async (filePath) => {
+            watcher.on("unlink", async (filePath) => {
                 this.logger.info(`File removed: ${filePath}`);
                 // Run code generation
                 await this.performCodeGenerationCycle();
             });
 
-            watcher.on('error', (error) => {
+            watcher.on("error", (error) => {
                 this.logger.error(`Watcher error: ${error}`);
             });
+
+            // Allow the user to stop watching (optional)
+            console.log('Press "x" or "e" and Enter to stop watching for changes.');
+
+            const checkForExit = () => {
+                const input = readline.question('');
+                if (input.toLowerCase() === 'x' || input.toLowerCase() === 'e') {
+                    watcher.close();
+                    this.logger.info('Stopped watching for file changes.');
+                    resolve();
+                } else {
+                    checkForExit();
+                }
+            };
+
+            checkForExit();
         });
     }
 }

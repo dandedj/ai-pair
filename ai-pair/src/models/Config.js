@@ -7,6 +7,7 @@ class Config {
         this.model = configData.model;
         this.projectRoot = path.resolve(configData.projectRoot);
         this.extension = configData.extension || '.java';
+        this.srcDir = path.resolve(this.projectRoot, configData.srcDir || 'src/main/java');
         this.testDir = path.resolve(this.projectRoot, configData.testDir || 'src/test');
         this.apiKeys = {
             anthropic: configData.anthropicApiKey || process.env.ANTHROPIC_API_KEY,

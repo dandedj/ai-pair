@@ -7,7 +7,6 @@ const { logger } = require('./logger');
 
 class TestRunner {
   constructor() {
-    // No member variables for config or runningState
   }
 
   runInitialTests(config, runningState, force) {
