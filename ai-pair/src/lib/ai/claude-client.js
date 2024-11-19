@@ -1,5 +1,6 @@
 const axios = require('axios');
-const BaseAIClient = require('./BaseAIClient');
+const BaseAIClient = require('./base-ai-client');
+const { logger } = require('../logger');
 
 class ClaudeClient extends BaseAIClient {
     constructor(apiKey, model = 'claude-3-5-sonnet', tmpDir) {
@@ -35,7 +36,7 @@ class ClaudeClient extends BaseAIClient {
 
             return generatedCode;
         } catch (error) {
-            this.logger.error('Error generating code:', error);
+            logger.error('Error generating code:', error);
             throw error;
         }
     }

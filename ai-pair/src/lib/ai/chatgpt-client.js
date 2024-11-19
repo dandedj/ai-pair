@@ -1,5 +1,6 @@
 const axios = require('axios');
-const BaseAIClient = require('./BaseAIClient');
+const BaseAIClient = require('./base-ai-client');
+const { logger } = require('../logger');
 
 class ChatGPTClient extends BaseAIClient {
     constructor(apiKey, model = 'gpt-4o', tmpDir) {
@@ -40,7 +41,7 @@ class ChatGPTClient extends BaseAIClient {
 
             return generatedCode;
         } catch (error) {
-            this.logger.error('Error generating code:', error);
+            logger.error('Error generating code:', error);
             throw error;
         }
     }

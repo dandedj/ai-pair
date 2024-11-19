@@ -1,13 +1,14 @@
 const axios = require('axios');
 
 class GeminiClient {
-    constructor(apiKey, model = 'gemini-1') {
+    constructor(apiKey, model = 'gemini-1', tmpDir) {
         this.apiKey = apiKey;
+        this.tmpDir = tmpDir;
         this.model = model;
         this.apiUrl = 'https://api.google.com/gemini/v1/completions'; // Hypothetical URL
     }
 
-    async generateCode(prompt, tmpDir) {
+    async generateCode(prompt) {
         try {
             const response = await axios.post(this.apiUrl, {
                 model: this.model,

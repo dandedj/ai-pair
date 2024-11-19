@@ -8,9 +8,12 @@
   },
   "dependencies": {
     "ai-pair": "^1.0.0",
-    "minimist": "^1.2.5",
+    "chokidar": "^3.5.3",
+    "dotenv": "^16.0.0",
+    "minimist": "^1.2.8",
+    "readline-sync": "^1.4.10"
   },
   "scripts": {
     "start": "node src/AIPair.js"
-  },
-} 
+  }
+}

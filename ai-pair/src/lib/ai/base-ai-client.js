@@ -1,12 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const { getLogger } = require('../logger');
+const { logger } = require('../logger');
 
 class BaseAIClient {
     constructor(apiKey, model, tmpDir) {
         this.apiKey = apiKey;
         this.model = model;
-        this.logger = getLogger();
         this.tmpDir = tmpDir;
         this.tokenUsage = {
             promptTokens: 0,
@@ -36,7 +35,7 @@ class BaseAIClient {
         this.tokenUsage.promptTokens += promptTokens;
         this.tokenUsage.completionTokens += completionTokens;
         this.tokenUsage.totalTokens += (promptTokens + completionTokens);
-        this.logger.debug(`Token usage - Prompt: ${promptTokens}, Completion: ${completionTokens}, Total: ${this.tokenUsage.totalTokens}`);
+        logger.debug(`Token usage - Prompt: ${promptTokens}, Completion: ${completionTokens}, Total: ${this.tokenUsage.totalTokens}`);
     }
 
     updateTokenUsage(apiResponse) {

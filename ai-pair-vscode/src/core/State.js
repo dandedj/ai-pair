@@ -1,4 +1,4 @@
-const Config = require('ai-pair/src/models/Config');
+const Config = require('ai-pair/src/models/config');
 const RunningState = require('ai-pair/src/models/RunningState');
 
 class State {

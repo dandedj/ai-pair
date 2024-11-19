@@ -110,7 +110,7 @@
   },
   "dependencies": {
     "vscode": "^1.1.37",
-    "ai-pair": "file:../test_driven/ai-pair"
+    "ai-pair": "file:../ai-pair"
   },
   "icon": "images/icon.png"
 }

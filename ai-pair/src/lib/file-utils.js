@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { getLogger } = require('./logger');
-
-const logger = getLogger();
+const { logger } = require('./logger');
 
 /**
  * Recursively collects all files with a given extension in specified directories.

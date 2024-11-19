@@ -1,7 +1,8 @@
 const vscode = require('vscode');
 const globalEvents = require('../utils/events');
 const sidebar = require('../webview/sidebar');
-const { AIPairRunner } = require('ai-pair');
+const AIPair = require('ai-pair');
+const Config = require('ai-pair/src/models/config');
 
 class SidebarProvider {
     constructor(extensionUri, statusBarItem) {
@@ -36,7 +37,18 @@ class SidebarProvider {
         );
 
         // Get the configuration
-        const config = vscode.workspace.getConfiguration('aiPairProgrammer');
+        const configData = vscode.workspace.getConfiguration('aiPairProgrammer');
+        const config = new Config({
+            model: configData.get('model', 'gpt-4o'),
+            projectRoot: vscode.workspace.workspaceFolders[0].uri.fsPath,
+            testDir: configData.get('testDir', 'src/test'),
+            extension: configData.get('extension', '.java'),
+            openaiApiKey: configData.get('openaiApiKey', ''),
+            anthropicApiKey: configData.get('anthropicApiKey', ''),
+            geminiApiKey: configData.get('geminiApiKey', ''),
+            logLevel: configData.get('logLevel', 'debug'),
+            tmpDir: configData.get('tmpDir', vscode.workspace.workspaceFolders[0].uri.fsPath + '/tmp')
+        });
 
         // Generate the HTML content
         const htmlContent = sidebar.getWebviewContent(stylesUri, scriptUri, config);
@@ -49,16 +61,14 @@ class SidebarProvider {
             console.log('Received message from webview:', data);
             if (data.command === 'activate') {
                 console.log('Activation command received from webview.');
-                this.startNewCycle();
+                this.startNewCycle(config);
             }
         });
     }
 
-    startNewCycle() {
+    startNewCycle(config) {
         // Check if workspace folders are available
-        const rootDirectory = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
-            ? vscode.workspace.workspaceFolders[0].uri.fsPath
-            : '';
+        const rootDirectory = config.projectRoot;
         
         if (!rootDirectory) {
             console.error('No workspace folder is open.');
@@ -67,22 +77,12 @@ class SidebarProvider {
 
         console.log('Root directory:', rootDirectory);
 
-        const runner = new AIPairRunner({
-            model: "gpt-4o",
-            projectRoot: rootDirectory,
-            testDir: rootDirectory + "/src/test",
-            extension: ".java",
-            openaiApiKey: "",
-            anthropicApiKey: "",
-            geminiApiKey: "",
-            logLevel: "debug",
-            tmpDir: rootDirectory + "/tmp"
-        });
+        const runner = new AIPair(config);
 
         // Update status bar to show loading
         this._statusBarItem.text = "$(sync~spin) AI Pair Programmer Running...";
         this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-        this._statusBarItem.tooltip = `Model: ${runner.model}\nProject Root: ${runner.projectRoot}\nTest Directory: ${runner.testDir}\nExtension: ${runner.extension}`;
+        this._statusBarItem.tooltip = `Model: ${config.model}\nProject Root: ${config.projectRoot}\nTest Directory: ${config.testDir}\nExtension: ${config.extension}`;
         this._statusBarItem.show();
 
         // Start the loading animation
@@ -108,7 +108,7 @@ class SidebarProvider {
                 this._statusBarItem.text = "$(error) AI Pair Programmer";
                 this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
             }
-            this._statusBarItem.tooltip = `Model: ${runner.model}\nProject Root: ${runner.projectRoot}\nTest Directory: ${runner.testDir}\nExtension: ${runner.extension}`;
+            this._statusBarItem.tooltip = `Model: ${config.model}\nProject Root: ${config.projectRoot}\nTest Directory: ${config.testDir}\nExtension: ${config.extension}`;
         });
     }
 
