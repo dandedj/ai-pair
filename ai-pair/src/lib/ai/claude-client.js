@@ -8,7 +8,7 @@ class ClaudeClient extends BaseAIClient {
         this.apiUrl = 'https://api.anthropic.com/v1/complete';
     }
 
-    async generateCode(prompt, tmpDir, systemPrompt = '') {
+    async generateCode(prompt, systemPrompt = '') {
         const timestamp = this.logRequest(prompt);
 
         try {

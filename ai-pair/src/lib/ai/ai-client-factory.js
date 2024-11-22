@@ -13,8 +13,20 @@ class AIClientFactory {
             'gpt-4o': 'openai',
             'gpt-4o-mini': 'openai',
             'gpt-3.5-turbo': 'openai',
+            'o1-preview': 'openai',
+            'o1-mini': 'openai',
             'claude-3-5-sonnet': 'anthropic',
+            'claude-3-haiku': 'anthropic',
+
             'gemini-2': 'gemini',
+            'gemini-1.5-flash': 'gemini',
+            'gemini-1.5-pro': 'gemini',
+            'gemini-1.0-pro': 'gemini',
+            'gemini-exp-1114': 'gemini',
+            'gemini-exp-1121': 'gemini',
+            'gemini-1.5-flash-latest': 'gemini',
+            'gemini-1.5-pro-latest': 'gemini',
+            'gemini-1.0-pro-latest': 'gemini',
         };
     }
 

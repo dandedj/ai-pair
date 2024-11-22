@@ -7,6 +7,7 @@
     "ai-pair": "./src/AIPair.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.3.0",
     "ai-pair": "^1.0.0",
     "chokidar": "^3.5.3",
     "dotenv": "^16.0.0",

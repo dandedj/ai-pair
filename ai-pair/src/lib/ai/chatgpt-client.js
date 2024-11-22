@@ -8,7 +8,7 @@ class ChatGPTClient extends BaseAIClient {
         this.apiUrl = 'https://api.openai.com/v1/chat/completions';
     }
 
-    async generateCode(prompt, tmpDir, systemPrompt = '') {
+    async generateCode(prompt, systemPrompt = '') {
         const timestamp = this.logRequest(prompt);
 
         try {

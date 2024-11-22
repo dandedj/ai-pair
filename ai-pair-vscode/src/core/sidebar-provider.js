@@ -3,12 +3,16 @@ const globalEvents = require('../utils/events');
 const sidebar = require('../webview/sidebar');
 const AIPair = require('ai-pair');
 const Config = require('ai-pair/src/models/config');
+const RunningState = require('ai-pair/src/models/running-state');
 
 class SidebarProvider {
-    constructor(extensionUri, statusBarItem) {
+    constructor(extensionUri, statusBarItem, runner, config, runningState) {
         this._extensionUri = extensionUri;
         this._view = null;
         this._statusBarItem = statusBarItem;
+        this.runner = runner;
+        this.config = config;
+        this.runningState = runningState;
 
         // Listen for status updates
         globalEvents.on('pairProgrammer:statusUpdate', (status) => {
@@ -36,22 +40,8 @@ class SidebarProvider {
             vscode.Uri.joinPath(this._extensionUri, 'webview', 'sidebar.js')
         );
 
-        // Get the configuration
-        const configData = vscode.workspace.getConfiguration('aiPairProgrammer');
-        const config = new Config({
-            model: configData.get('model', 'gpt-4o'),
-            projectRoot: vscode.workspace.workspaceFolders[0].uri.fsPath,
-            testDir: configData.get('testDir', 'src/test'),
-            extension: configData.get('extension', '.java'),
-            openaiApiKey: configData.get('openaiApiKey', ''),
-            anthropicApiKey: configData.get('anthropicApiKey', ''),
-            geminiApiKey: configData.get('geminiApiKey', ''),
-            logLevel: configData.get('logLevel', 'debug'),
-            tmpDir: configData.get('tmpDir', vscode.workspace.workspaceFolders[0].uri.fsPath + '/tmp')
-        });
-
         // Generate the HTML content
-        const htmlContent = sidebar.getWebviewContent(stylesUri, scriptUri, config);
+        const htmlContent = sidebar.getWebviewContent(stylesUri, scriptUri, this.config);
 
         // Set the HTML content
         webviewView.webview.html = htmlContent;
@@ -61,14 +51,13 @@ class SidebarProvider {
             console.log('Received message from webview:', data);
             if (data.command === 'activate') {
                 console.log('Activation command received from webview.');
-                this.startNewCycle(config);
+                this.startNewCycle();
             }
         });
     }
 
-    startNewCycle(config) {
-        // Check if workspace folders are available
-        const rootDirectory = config.projectRoot;
+    startNewCycle() {
+        const rootDirectory = this.config.projectRoot;
         
         if (!rootDirectory) {
             console.error('No workspace folder is open.');
@@ -77,18 +66,20 @@ class SidebarProvider {
 
         console.log('Root directory:', rootDirectory);
 
-        const runner = new AIPair(config);
+        this.runningState.resetCycleState();
 
         // Update status bar to show loading
         this._statusBarItem.text = "$(sync~spin) AI Pair Programmer Running...";
         this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-        this._statusBarItem.tooltip = `Model: ${config.model}\nProject Root: ${config.projectRoot}\nTest Directory: ${config.testDir}\nExtension: ${config.extension}`;
+        this._statusBarItem.tooltip = `Model: ${this.config.model}\nProject Root: ${this.config.projectRoot}\nTest Directory: ${this.config.testDir}\nExtension: ${this.config.extension}`;
         this._statusBarItem.show();
 
         // Start the loading animation
         this._view.webview.postMessage({ type: 'showLoading' });
 
-        runner.runWithoutInteraction().then(results => {
+        this.runner.runWithoutInteraction().then(() => {
+            var results = this.runningState.testResults;
+
             console.log("Results: ", results);
             for (const [key, value] of Object.entries(results)) {
                 console.log(`${key}: ${value}`);
@@ -102,13 +93,13 @@ class SidebarProvider {
 
             // Update status bar based on test results
             if (results.testsPassed) {
-                this._statusBarItem.text = "$(check) AI Pair Programmer";
+                this._statusBarItem.text = "$(check) AI Pair Programmer $(configure)";
                 this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.successBackground');
             } else {
-                this._statusBarItem.text = "$(error) AI Pair Programmer";
+                this._statusBarItem.text = "$(error) AI Pair Programmer $(configure)";
                 this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
             }
-            this._statusBarItem.tooltip = `Model: ${config.model}\nProject Root: ${config.projectRoot}\nTest Directory: ${config.testDir}\nExtension: ${config.extension}`;
+            this._statusBarItem.tooltip = `Model: ${this.config.model}\n`;
         });
     }
 
