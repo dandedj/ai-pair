@@ -1,8 +1,40 @@
-class RunningState {    constructor() {
+interface TestResults {
+    testsPassed: boolean;
+    totalTests: number;
+    failedTests: string[];
+    passedTests: string[];
+    erroredTests: string[];
+    lastRunTime: Date | null;
+}
+
+interface BuildState {
+    compiledSuccessfully: boolean;
+    lastCompileTime: Date | null;
+}
+
+interface CodeChanges {
+    lastChangeTime: Date | null;
+    newFiles: string[];
+    deletedFiles: string[];
+    modifiedFiles: string[];
+    buildFiles: string[];
+}
+
+class RunningState {
+    accumulatedHints: string[];
+    generationCycles: number;
+    changesPerCycle: any[]; // Replace 'any' with a more specific type if possible
+    lastRunOutput: any; // Replace 'any' with a more specific type if possible
+    testResults: TestResults;
+    buildState: BuildState;
+    codeChanges: CodeChanges;
+    cycleStartTime: Date | null;
+
+    constructor() {
         this.accumulatedHints = [];
         this.generationCycles = 0;
         this.changesPerCycle = [];
-        this.lastRunOutput = null,
+        this.lastRunOutput = null;
         this.testResults = {
             testsPassed: false,
             totalTests: 0,
@@ -15,7 +47,6 @@ class RunningState {    constructor() {
             compiledSuccessfully: false,
             lastCompileTime: null,
         };
-
         this.codeChanges = {
             lastChangeTime: null,
             newFiles: [],
@@ -23,34 +54,32 @@ class RunningState {    constructor() {
             modifiedFiles: [],
             buildFiles: [],
         };
-        
         this.cycleStartTime = null;
     }
 
-    // Methods to update the state
-    addHint(hint) {
+    addHint(hint: string): void {
         if (hint) {
             this.accumulatedHints.push(hint);
         }
     }
 
-    clearHints() {
+    clearHints(): void {
         this.accumulatedHints = [];
     }
 
-    incrementGenerationCycles() {
+    incrementGenerationCycles(): void {
         this.generationCycles += 1;
     }
 
-    setCycleStartTime() {
+    setCycleStartTime(): void {
         this.cycleStartTime = new Date();
     }
 
-    resetState() {
+    resetState(): void {
         this.accumulatedHints = [];
         this.generationCycles = 0;
         this.changesPerCycle = [];
-        this.lastRunOutput = null,
+        this.lastRunOutput = null;
         this.testResults = {
             testsPassed: false,
             totalTests: 0,
@@ -63,7 +92,6 @@ class RunningState {    constructor() {
             compiledSuccessfully: false,
             lastCompileTime: null,
         };
-
         this.codeChanges = {
             lastChangeTime: null,
             newFiles: [],
@@ -74,8 +102,7 @@ class RunningState {    constructor() {
         this.cycleStartTime = null;
     }
 
-    // reset the current cycle state
-    resetCycleState() {
+    resetCycleState(): void {
         this.testResults = {
             testsPassed: false,
             totalTests: 0,
@@ -92,4 +119,4 @@ class RunningState {    constructor() {
     }
 }
 
-module.exports = RunningState; 
+export default RunningState; 

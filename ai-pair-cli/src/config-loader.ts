@@ -1,8 +1,9 @@
-const minimist = require('minimist');
-const path = require('path');
-const fs = require('fs');
+import minimist from 'minimist';
+import path from 'path';
+import fs from 'fs';
+import Config from 'ai-pair/src/models/config';
 
-function loadCommandLineConfig() {
+function loadCommandLineConfig(): Config {
     const args = process.argv.slice(2);
     const parsedArgs = minimist(args, {
         alias: { 
@@ -23,6 +24,16 @@ function loadCommandLineConfig() {
         }
     });
 
+    // move the parsedArgs to a Config object
+    const config = new Config({
+        model: parsedArgs.model,
+        projectRoot: parsedArgs.projectRoot,
+        extension: parsedArgs.extension,
+        testDir: parsedArgs.testDir,
+        tmpDir: parsedArgs.tmpDir,
+        logLevel: parsedArgs.logLevel
+    });
+
     const configFilePath = path.join(process.cwd(), 'ai-pair-config.json');
 
     // print the config file path
@@ -33,9 +44,7 @@ function loadCommandLineConfig() {
         return { ...parsedArgs, ...fileConfig };
     }
 
-    return parsedArgs;
+    return config
 }
 
-module.exports = {
-    loadCommandLineConfig
-}; 
+export { loadCommandLineConfig }; 

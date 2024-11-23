@@ -1,21 +1,24 @@
-const axios = require('axios');
-const BaseAIClient = require('./base-ai-client');
-const { logger } = require('../logger');
+import OpenAI from 'openai';
+import BaseAIClient from './base-ai-client';
+import { logger } from '../logger';
 
 class ChatGPTClient extends BaseAIClient {
-    constructor(apiKey, model = 'gpt-4o', tmpDir) {
+    apiUrl: string;
+    openai: OpenAI;
+
+    constructor(apiKey: string, model: string = 'gpt-4o', tmpDir: string) {
         super(apiKey, model, tmpDir);
         this.apiUrl = 'https://api.openai.com/v1/chat/completions';
+
+        this.openai = new OpenAI({apiKey: apiKey});
     }
 
-    async generateCode(prompt, systemPrompt = '') {
+    async generateCode(prompt: string, systemPrompt: string = ''): Promise<string> {
         const timestamp = this.logRequest(prompt);
 
         try {
-            // Determine if the model is an 'o1' model
             const isO1Model = this.model.startsWith('o1');
 
-            // Construct messages
             const messages = isO1Model
                 ? [{ role: 'user', content: prompt }]
                 : [
@@ -23,45 +26,28 @@ class ChatGPTClient extends BaseAIClient {
                       { role: 'user', content: prompt },
                   ];
 
-            // Set the correct token parameter key
             const maxTokens = 4096;
             const maxCompletionTokens = 32768;
             const tokenParamKey = isO1Model ? 'max_completion_tokens' : 'max_tokens';
             const temperature = isO1Model ? 1.0 : 0.5;
 
-            // Prepare request body with dynamic token parameter
-            const requestBody = {
+            const response = await this.openai.completions.create({
                 model: this.model,
-                messages: messages,
+                prompt: prompt,
                 temperature: temperature,
                 [tokenParamKey]: isO1Model ? maxCompletionTokens : maxTokens,
-            };
+            });
 
-            // Make API request
-            const response = await axios.post(
-                this.apiUrl,
-                requestBody,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${this.apiKey}`,
-                    },
-                }
-            );
-            // this.logResponse(response, timestamp);
-
-            const generatedCode = response.data.choices[0].message.content.trim();
+            const generatedCode = response.choices[0].text;
             this.logResponse(generatedCode, timestamp);
 
-            // Update token usage
-            this.updateTokenUsage(response.data);
+            this.updateTokenUsage(response.usage);
 
             return generatedCode;
-        } catch (error) {
+        } catch (error: any) {
             logger.error('Error generating code:', error);
             console.error(error.stack);
 
-            // Print the HTTP response if available
             if (error.response && error.response.data) {
                 console.log(error.response.data);
             }
@@ -69,7 +55,7 @@ class ChatGPTClient extends BaseAIClient {
         }
     }
 
-    updateTokenUsage(apiResponse) {
+    updateTokenUsage(apiResponse: any): void {
         const usage = apiResponse.usage;
         if (usage) {
             this.logTokenUsage(usage.prompt_tokens, usage.completion_tokens);
@@ -77,4 +63,4 @@ class ChatGPTClient extends BaseAIClient {
     }
 }
 
-module.exports = ChatGPTClient;
+export default ChatGPTClient; 

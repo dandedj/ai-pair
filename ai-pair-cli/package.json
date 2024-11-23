@@ -12,6 +12,7 @@
     "chokidar": "^3.5.3",
     "dotenv": "^16.0.0",
     "minimist": "^1.2.8",
+    "openai": "^4.73.0",
     "readline-sync": "^1.4.10"
   },
   "scripts": {
