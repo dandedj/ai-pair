@@ -1,9 +1,9 @@
 import 'dotenv/config'; // Load environment variables from .env file
 
 import path from 'path';
-import { configureLogger } from 'ai-pair/src/lib/logger'; // Adjust the path if necessary
+import { configureLogger } from 'ai-pair'; // Adjust the path if necessary
 import { loadCommandLineConfig } from './config-loader';
-import { clearDirectory } from 'ai-pair/src/lib/file-utils';
+import { clearDirectory } from 'ai-pair';
 import { AIPair, Config, RunningState } from 'ai-pair';
 
 // Load configuration data

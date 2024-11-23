@@ -1,9 +1,12 @@
 import minimist from 'minimist';
 import path from 'path';
 import fs from 'fs';
-import { Config } from 'ai-pair';
+import { Config, logger } from 'ai-pair';
 
 function loadCommandLineConfig(): Config {
+    // show the received arguments
+    console.log('Received arguments:', process.argv);
+
     const args = process.argv.slice(2);
     const parsedArgs = minimist(args, {
         alias: { 
@@ -20,9 +23,14 @@ function loadCommandLineConfig(): Config {
             extension: '.java', 
             testDir: 'src/test/java', 
             tmpDir: 'tmp',
-            logLevel: 'debug'
+            logLevel: 'debug', 
         }
     });
+
+    // validate that all required arguments are present
+    if (!parsedArgs.projectRoot) {
+        throw new Error('Project root is required');
+    }
 
     // move the parsedArgs to a Config object
     const config = new Config({

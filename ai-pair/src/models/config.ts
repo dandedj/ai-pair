@@ -78,7 +78,8 @@ class Config {
     loadPromptFile(fileName: string): string {
         const filePath = path.join(this.promptsPath, fileName);
         if (!fs.existsSync(filePath)) {
-            throw new Error(`Prompt file not found at path: ${filePath}`);
+            console.error(`Prompt file not found at path: ${filePath}`);
+            throw new Error(`Prompt file not found`);
         }
         return fs.readFileSync(filePath, 'utf-8');
     }

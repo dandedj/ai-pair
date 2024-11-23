@@ -7,7 +7,7 @@ import GeminiClient from './lib/ai/gemini-client';
 import { parseAndApplyGeneratedCode } from './lib/code-parser';
 import { collectFilesWithExtension, clearDirectory } from './lib/file-utils';
 import runTests from './lib/test-runner';
-import { logger } from './lib/logger';
+import { logger, configureLogger } from './lib/logger';
 
 export {
     AIPair,
@@ -20,5 +20,6 @@ export {
     collectFilesWithExtension,
     clearDirectory,
     runTests,
-    logger
+    logger, 
+    configureLogger
 }; 

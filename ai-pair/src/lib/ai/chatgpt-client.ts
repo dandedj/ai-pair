@@ -1,15 +1,14 @@
 import OpenAI from 'openai';
 import BaseAIClient from './base-ai-client';
 import { logger } from '../logger';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 class ChatGPTClient extends BaseAIClient {
-    apiUrl: string;
     openai: OpenAI;
 
     constructor(apiKey: string, model: string = 'gpt-4o', tmpDir: string) {
         super(apiKey, model, tmpDir);
-        this.apiUrl = 'https://api.openai.com/v1/chat/completions';
-
+        console.log('ChatGPTClient constructor called with model and apiKey:', model, apiKey);
         this.openai = new OpenAI({apiKey: apiKey});
     }
 
@@ -19,7 +18,7 @@ class ChatGPTClient extends BaseAIClient {
         try {
             const isO1Model = this.model.startsWith('o1');
 
-            const messages = isO1Model
+            const messages: ChatCompletionMessageParam[] = isO1Model
                 ? [{ role: 'user', content: prompt }]
                 : [
                       { role: 'system', content: systemPrompt },
@@ -31,19 +30,23 @@ class ChatGPTClient extends BaseAIClient {
             const tokenParamKey = isO1Model ? 'max_completion_tokens' : 'max_tokens';
             const temperature = isO1Model ? 1.0 : 0.5;
 
-            const response = await this.openai.completions.create({
+            const response = await this.openai.chat.completions.create({
                 model: this.model,
-                prompt: prompt,
+                messages: messages,
                 temperature: temperature,
                 [tokenParamKey]: isO1Model ? maxCompletionTokens : maxTokens,
             });
 
-            const generatedCode = response.choices[0].text;
-            this.logResponse(generatedCode, timestamp);
+            const generatedCode = response.choices[0].message;
+            if (generatedCode && generatedCode.content) {
+                this.logResponse(generatedCode.content, timestamp);
+            } else {
+                throw new Error('Generated code content is null or undefined');
+            }
 
             this.updateTokenUsage(response.usage);
 
-            return generatedCode;
+            return generatedCode.content;
         } catch (error: any) {
             logger.error('Error generating code:', error);
             console.error(error.stack);
