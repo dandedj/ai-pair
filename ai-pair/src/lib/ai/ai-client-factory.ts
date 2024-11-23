@@ -1,14 +1,18 @@
-const ChatGPTClient = require('./chatgpt-client');
-const ClaudeClient = require('./claude-client');
-const GeminiClient = require('./gemini-client');
-const { logger } = require('../logger');
+import ChatGPTClient from './chatgpt-client';
+import ClaudeClient from './claude-client';
+import GeminiClient from './gemini-client';
+import { logger } from '../logger';
 
-/**
- * Factory class to create AI client instances based on the model.
- */
+interface Config {
+    model: string;
+    tmpDir: string;
+    apiKeys: { [key: string]: string };
+}
+
 class AIClientFactory {
+    modelFamilies: { [key: string]: string };
+
     constructor() {
-        // Model families mapping
         this.modelFamilies = {
             'gpt-4o': 'openai',
             'gpt-4o-mini': 'openai',
@@ -17,7 +21,6 @@ class AIClientFactory {
             'o1-mini': 'openai',
             'claude-3-5-sonnet': 'anthropic',
             'claude-3-haiku': 'anthropic',
-
             'gemini-2': 'gemini',
             'gemini-1.5-flash': 'gemini',
             'gemini-1.5-pro': 'gemini',
@@ -30,22 +33,11 @@ class AIClientFactory {
         };
     }
 
-    /**
-     * Retrieves the family of the given model.
-     * @param {string} model - The AI model name.
-     * @returns {string} - The model family.
-     */
-    getModelFamily(model) {
+    getModelFamily(model: string): string {
         return this.modelFamilies[model];
     }
 
-    /**
-     * Retrieves the API key for the given model.
-     * @param {Object} config - Configuration object.
-     * @param {string} model - The AI model name.
-     * @returns {string} - The API key.
-     */
-    getApiKeyForModel(config, model) {
+    getApiKeyForModel(config: Config, model: string): string {
         const family = this.getModelFamily(model);
         const apiKey = config.apiKeys[family];
 
@@ -58,12 +50,7 @@ class AIClientFactory {
         return apiKey;
     }
 
-    /**
-     * Creates an AI client instance based on the model.
-     * @param {Object} config - Configuration object.
-     * @returns {Object} - The AI client instance.
-     */
-    createClient(config) {
+    createClient(config: Config): ChatGPTClient | ClaudeClient | GeminiClient {
         const family = this.getModelFamily(config.model);
         const apiKey = this.getApiKeyForModel(config, config.model);
 
@@ -81,4 +68,4 @@ class AIClientFactory {
     }
 }
 
-module.exports = AIClientFactory;
+export default AIClientFactory; 

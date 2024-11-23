@@ -13,7 +13,10 @@
     "onCommand:ai-pair-programmer.stop",
     "onCommand:ai-pair-programmer.toggle"
   ],
-  "main": "./src/extension.js",
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "tsc"
+  },
   "contributes": {
     "commands": [
       {
@@ -34,7 +37,7 @@
         {
           "id": "aiPairProgrammer",
           "title": "AI Pair Programmer",
-          "icon": "images/icon.png"
+          "icon": "src/webview/icon.png"
         }
       ]
     },
@@ -108,9 +111,17 @@
       }
     }
   },
-  "dependencies": {
-    "vscode": "^1.1.37",
-    "ai-pair": "file:../test_driven/ai-pair"
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@stylistic/eslint-plugin": "^2.9.0",
+    "@types/node": "^20",
+    "@types/vscode": "^1.73.0",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.2",
+    "typescript-eslint": "^8.11.0"
   },
-  "icon": "images/icon.png"
+  "dependencies": {
+    "ai-pair": "file:../ai-pair"
+  },
+  "icon": "src/webview/icon.png"
 }

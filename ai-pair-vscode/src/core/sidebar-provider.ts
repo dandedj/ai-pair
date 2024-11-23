@@ -1,27 +1,37 @@
-const vscode = require('vscode');
-const globalEvents = require('../utils/events');
-const sidebar = require('../webview/sidebar');
-const AIPair = require('ai-pair');
-const Config = require('ai-pair/src/models/config');
-const RunningState = require('ai-pair/src/models/running-state');
+import * as vscode from 'vscode';
+import globalEvents from '../utils/events';
+import { getWebviewContent } from '../webview/sidebar';
+import { AIPair, Config, RunningState } from 'ai-pair';
 
-class SidebarProvider {
-    constructor(extensionUri, statusBarItem, runner, config, runningState) {
+class SidebarProvider implements vscode.WebviewViewProvider {
+    private _extensionUri: vscode.Uri;
+    private _view: vscode.WebviewView | null = null;
+    private _statusBarItem: vscode.StatusBarItem;
+    private runner: AIPair;
+    private config: Config;
+    private runningState: RunningState;
+
+    constructor(
+        extensionUri: vscode.Uri,
+        statusBarItem: vscode.StatusBarItem,
+        runner: AIPair,
+        config: Config,
+        runningState: RunningState
+    ) {
         this._extensionUri = extensionUri;
-        this._view = null;
         this._statusBarItem = statusBarItem;
         this.runner = runner;
         this.config = config;
         this.runningState = runningState;
 
         // Listen for status updates
-        globalEvents.on('pairProgrammer:statusUpdate', (status) => {
+        globalEvents.on('pairProgrammer:statusUpdate', (status: string) => {
             console.log('Status update received:', status);
             this.updateStatus(status);
         });
     }
 
-    resolveWebviewView(webviewView) {
+    resolveWebviewView(webviewView: vscode.WebviewView): void {
         console.log('Resolving webview view');
         this._view = webviewView;
         webviewView.webview.options = {
@@ -41,13 +51,13 @@ class SidebarProvider {
         );
 
         // Generate the HTML content
-        const htmlContent = sidebar.getWebviewContent(stylesUri, scriptUri, this.config);
+        const htmlContent = getWebviewContent(stylesUri.toString(), scriptUri.toString(), this.config);
 
         // Set the HTML content
         webviewView.webview.html = htmlContent;
 
         // Handle messages from the webview
-        webviewView.webview.onDidReceiveMessage(async (data) => {
+        webviewView.webview.onDidReceiveMessage(async (data: { command: string }) => {
             console.log('Received message from webview:', data);
             if (data.command === 'activate') {
                 console.log('Activation command received from webview.');
@@ -56,7 +66,7 @@ class SidebarProvider {
         });
     }
 
-    startNewCycle() {
+    startNewCycle(): void {
         const rootDirectory = this.config.projectRoot;
         
         if (!rootDirectory) {
@@ -75,21 +85,21 @@ class SidebarProvider {
         this._statusBarItem.show();
 
         // Start the loading animation
-        this._view.webview.postMessage({ type: 'showLoading' });
+        this._view?.webview.postMessage({ type: 'showLoading' });
 
         this.runner.runWithoutInteraction().then(() => {
-            var results = this.runningState.testResults;
+            const results = this.runningState.testResults;
 
             console.log("Results: ", results);
             for (const [key, value] of Object.entries(results)) {
                 console.log(`${key}: ${value}`);
             }
 
-            this.updateTestResults(results.testsPassed + " tests passed, " + results.compilationFailed + " compilation failed, " + results.failedTests + " failed tests");    
-            this.updateChangedFiles(results.changedFiles);
+            this.updateTestResults(`${results.testsPassed} tests passed, ${this.runningState.buildState.compiledSuccessfully} compilation failed, ${results.failedTests.length} failed tests`);    
+            this.updateChangedFiles(this.runningState.codeChanges.modifiedFiles);
 
             // Stop the loading animation
-            this._view.webview.postMessage({ type: 'hideLoading' });
+            this._view?.webview.postMessage({ type: 'hideLoading' });
 
             // Update status bar based on test results
             if (results.testsPassed) {
@@ -103,7 +113,7 @@ class SidebarProvider {
         });
     }
 
-    updateStatus(status) {
+    updateStatus(status: string): void {
         if (this._view) {
             console.log('Updating status in webview:', status);
             this._view.webview.postMessage({
@@ -114,7 +124,7 @@ class SidebarProvider {
     }
 
     // Method to update progress
-    updateProgress(progress) {
+    updateProgress(progress: number): void {
         if (this._view) {
             console.log('Updating progress in webview:', progress);
             this._view.webview.postMessage({
@@ -125,7 +135,7 @@ class SidebarProvider {
     }
 
     // Methods to update test results and changed files
-    updateTestResults(results) {
+    updateTestResults(results: string): void {
         if (this._view) {
             this._view.webview.postMessage({
                 type: 'updateTestResults',
@@ -134,7 +144,7 @@ class SidebarProvider {
         }
     }
 
-    updateChangedFiles(changes) {
+    updateChangedFiles(changes: string[]): void {
         if (this._view) {
             this._view.webview.postMessage({
                 type: 'updateChangedFiles',
@@ -144,4 +154,4 @@ class SidebarProvider {
     }
 }
 
-module.exports = SidebarProvider; 
+export { SidebarProvider };

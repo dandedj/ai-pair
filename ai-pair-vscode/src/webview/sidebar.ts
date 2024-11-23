@@ -1,4 +1,4 @@
-function getWebviewContent(stylesUri, scriptUri, config) {
+function getWebviewContent(stylesUri: string, scriptUri: string, config: any): string {
     return `
         <!DOCTYPE html>
         <html lang="en">
@@ -115,4 +115,4 @@ function getWebviewContent(stylesUri, scriptUri, config) {
     `;
 }
 
-module.exports = { getWebviewContent }; 
+export { getWebviewContent }; 

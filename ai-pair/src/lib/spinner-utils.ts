@@ -1,18 +1,18 @@
 /**
  * Delays execution for the specified time.
- * @param {number} ms - The number of milliseconds to wait.
- * @returns {Promise<void>}
+ * @param ms - The number of milliseconds to wait.
+ * @returns A promise that resolves after the specified delay.
  */
-function delay(ms) {
+function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * Starts a simple console spinner.
- * @param {string} message - The message to display with the spinner.
- * @returns {NodeJS.Timeout} - The interval ID for the spinner.
+ * @param message - The message to display with the spinner.
+ * @returns The interval ID for the spinner.
  */
-function startSpinner(message) {
+function startSpinner(message: string): NodeJS.Timeout {
   const spinnerChars = ['|', '/', '-', '\\'];
   let index = 0;
   process.stdout.write(message);
@@ -23,7 +23,4 @@ function startSpinner(message) {
   }, 100);
 }
 
-module.exports = {
-  delay,
-  startSpinner,
-}; 
+export { delay, startSpinner }; 

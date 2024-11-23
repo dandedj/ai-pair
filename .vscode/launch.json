@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch AI-Pair-CLI",
+            "program": "${workspaceFolder}/ai-pair-cli/dist/ai-pair-cli.js",
+            "args": [
+                "--p", "../sample_java_gradle_project",
+                "--l", "debug",
+                "--td", "tmp",
+                "--model", "gpt-4o"
+            ],
+            "cwd": "${workspaceFolder}/ai-pair-cli",
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        }
+    ]
+}

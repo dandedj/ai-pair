@@ -1,9 +1,10 @@
-require('dotenv').config(); // Load environment variables from .env file
+import 'dotenv/config'; // Load environment variables from .env file
 
-const path = require('path');
-const { configureLogger } = require('ai-pair/src/lib/logger'); // Adjust the path if necessary
-const { loadCommandLineConfig } = require('./config-loader');
-const { clearDirectory } = require('ai-pair/src/lib/file-utils');
+import path from 'path';
+import { configureLogger } from 'ai-pair'; // Adjust the path if necessary
+import { loadCommandLineConfig } from './config-loader';
+import { clearDirectory } from 'ai-pair';
+import { AIPair, Config, RunningState } from 'ai-pair';
 
 // Load configuration data
 const configData = loadCommandLineConfig();
@@ -16,9 +17,6 @@ configData.tmpDir = path.resolve(configData.tmpDir);
 
 // Configure the logger with settings from configData
 configureLogger({ logDirectory: configData.tmpDir, logLevel: configData.logLevel });
-
-// Now import other modules after configuring the logger
-const { AIPair, Config, RunningState } = require('ai-pair');
 
 (async () => {
   try {
@@ -34,7 +32,7 @@ const { AIPair, Config, RunningState } = require('ai-pair');
     const runner = new AIPair(config, runningState);
 
     await runner.runWithInteraction();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to run AI Pair:', error.message);
     // print the stack trace
     console.error(error.stack);

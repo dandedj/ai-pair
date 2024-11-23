@@ -2,7 +2,7 @@
   "name": "ai-pair",
   "version": "1.0.0",
   "description": "Core library for AI Pair Programming",
-  "main": "index.js",
+  "main": "dist/index.js",
   "files": [
     "src/**/*",
     "README.md"
@@ -13,14 +13,23 @@
     "chokidar": "^3.5.3",
     "readline-sync": "^1.4.10",
     "winston": "^3.10.0",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "openai": "^4.73.0"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.14.1",
-    "@google/generative-ai": "^0.3.0",
-    "openai": "^4.0.0"
+    "@google/generative-ai": "^0.3.0"
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@types/readline-sync": "^1.4.8",
+    "@types/xml2js": "^0.4.14",
+    "copyfiles": "^2.4.1",
+    "typescript": "^5.7.2"
+  },
+  "scripts": {
+    "build": "tsc && copyfiles -u 1 src/prompts/**/* dist"
   }
 }

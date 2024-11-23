@@ -44,7 +44,6 @@ sample_java_gradle_project/src/main/java/
 
 # IDEs and editors
 .idea/
-.vscode/
 
 # OS generated files
 .DS_Store
@@ -57,8 +56,6 @@ Thumbs.db
 *.ear
 *.iml
 
-# VS Code
-.vscode/
 
 # Temporary files
 *.tmp
