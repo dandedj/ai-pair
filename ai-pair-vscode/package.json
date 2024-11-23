@@ -37,7 +37,7 @@
         {
           "id": "aiPairProgrammer",
           "title": "AI Pair Programmer",
-          "icon": "images/icon.png"
+          "icon": "src/webview/icon.png"
         }
       ]
     },
@@ -123,5 +123,5 @@
   "dependencies": {
     "ai-pair": "file:../ai-pair"
   },
-  "icon": "images/icon.png"
+  "icon": "src/webview/icon.png"
 }

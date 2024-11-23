@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import fs from 'fs';
 import path from 'path';
-import SidebarProvider from './core/sidebar-provider';
-import { AIPair, Config, RunningState } from 'ai-pair';
+import { SidebarProvider } from './core/sidebar-provider';
+import { AIPair, Config, RunningState, configureLogger, LoggerOptions } from 'ai-pair';
 
 // Default configuration values
 const defaultConfig = {
@@ -22,11 +22,18 @@ const defaultConfig = {
 };
 
 export function activate(context: vscode.ExtensionContext): void {
+    
     const runningState = new RunningState();
-
-    // Create default configuration file
     const configFileData = loadConfigFromFile();
     const config = new Config(configFileData);
+
+    const loggerOptions: LoggerOptions = {
+        logLevel: config.logLevel,
+        logDirectory: config.tmpDir,
+    };
+
+    configureLogger(loggerOptions);
+
     const runner = new AIPair(config, runningState);
 
     console.log("AI Pair Programmer extension is now active!");
@@ -91,6 +98,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
 function loadConfigFromFile(): any {
     const workspaceFolders = vscode.workspace.workspaceFolders;
+
     if (!workspaceFolders) {
         vscode.window.showErrorMessage(
             "No workspace folder is open. Please open a folder to use AI Pair Programmer."

@@ -39,4 +39,4 @@ function configureLogger({ logDirectory, logLevel }: LoggerOptions): void {
     logger.add(new transports.File({ filename: logFilePath, level: logLevel }));
 }
 
-export { logger, configureLogger }; 
+export { logger, configureLogger, LoggerOptions }; 

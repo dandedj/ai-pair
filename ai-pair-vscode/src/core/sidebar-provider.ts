@@ -154,4 +154,4 @@ class SidebarProvider implements vscode.WebviewViewProvider {
     }
 }
 
-export default SidebarProvider; 
+export { SidebarProvider };

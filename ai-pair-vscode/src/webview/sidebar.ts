@@ -85,9 +85,9 @@ function getWebviewContent(stylesUri: string, scriptUri: string, config: any): s
                 const vscode = acquireVsCodeApi();
                 console.log('Sidebar script loaded.');
 
-                document.getElementById('activateButton')?.addEventListener('click', () => {
+                document.getElementById('activateButton').addEventListener('click', () => {
                     console.log('Activate button clicked');
-                    document.getElementById('loadingIndicator')!.style.display = 'block';
+                    document.getElementById('loadingIndicator').style.display = 'block';
                     vscode.postMessage({ command: 'activate' });
                 });
 
@@ -96,16 +96,16 @@ function getWebviewContent(stylesUri: string, scriptUri: string, config: any): s
                     console.log('Message received in webview:', message);
                     switch (message.type) {
                         case 'updateProgress':
-                            document.getElementById('progressBar')!.style.width = message.value + '%';
+                            document.getElementById('progressBar').style.width = message.value + '%';
                             break;
                         case 'updateTestResults':
-                            document.getElementById('testResults')!.innerText = message.value;
+                            document.getElementById('testResults').innerText = message.value;
                             break;
                         case 'updateChangedFiles':
-                            document.getElementById('changedFiles')!.innerText = message.value;
+                            document.getElementById('changedFiles').innerText = message.value;
                             break;
                         case 'hideLoading':
-                            document.getElementById('loadingIndicator')!.style.display = 'none';
+                            document.getElementById('loadingIndicator').style.display = 'none';
                             break;
                     }
                 });
