@@ -1,11 +1,8 @@
-
-const vscode = require("vscode");
-const fs = require("fs");
-const path = require("path");
-const SidebarProvider = require("./core/sidebar-provider");
-const AIPair = require("ai-pair");
-const Config = require("ai-pair/src/models/config");
-const RunningState = require("ai-pair/src/models/running-state");
+import * as vscode from 'vscode';
+import fs from 'fs';
+import path from 'path';
+import SidebarProvider from './core/sidebar-provider';
+import { AIPair, Config, RunningState } from 'ai-pair';
 
 // Default configuration values
 const defaultConfig = {
@@ -24,16 +21,16 @@ const defaultConfig = {
     numRetries: 3,
 };
 
-function activate(context) {
+export function activate(context: vscode.ExtensionContext): void {
     const runningState = new RunningState();
 
     // Create default configuration file
     const configFileData = loadConfigFromFile();
     const config = new Config(configFileData);
-    const runner = new AIPair.AIPair(config, runningState);
+    const runner = new AIPair(config, runningState);
 
     console.log("AI Pair Programmer extension is now active!");
-    console.log("Config : " + config);
+    console.log("Config : ", config);
 
     // Create status bar item
     const statusBarItem = vscode.window.createStatusBarItem(
@@ -62,7 +59,7 @@ function activate(context) {
 
     let isSidebarVisible = true;
 
-    let toggleDisposable = vscode.commands.registerCommand(
+    const toggleDisposable = vscode.commands.registerCommand(
         "ai-pair-programmer.toggle",
         () => {
             console.log("Toggle command executed");
@@ -77,11 +74,10 @@ function activate(context) {
         }
     );
 
-    let startCycleDisposable = vscode.commands.registerCommand(
+    const startCycleDisposable = vscode.commands.registerCommand(
         "ai-pair-programmer.startCycle",
         () => {
             console.log("Start cycle command executed");
-
             sidebarProvider.startNewCycle();
         }
     );
@@ -93,7 +89,7 @@ function activate(context) {
     );
 }
 
-function loadConfigFromFile() {
+function loadConfigFromFile(): any {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
         vscode.window.showErrorMessage(
@@ -124,11 +120,6 @@ function loadConfigFromFile() {
     return configFileData;
 }
 
-function deactivate() {
+export function deactivate(): void {
     console.log("AI Pair Programmer extension is now deactivated.");
-}
-
-module.exports = {
-    activate,
-    deactivate,
-};
+} 

@@ -1,3 +1,11 @@
+interface CodeChangeSummary {
+    lastChangeTime: Date | null;
+    newFiles: string[];
+    deletedFiles: string[];
+    modifiedFiles: string[];
+    buildFiles: string[];
+}
+
 interface TestResults {
     testsPassed: boolean;
     totalTests: number;
@@ -12,14 +20,6 @@ interface BuildState {
     lastCompileTime: Date | null;
 }
 
-interface CodeChanges {
-    lastChangeTime: Date | null;
-    newFiles: string[];
-    deletedFiles: string[];
-    modifiedFiles: string[];
-    buildFiles: string[];
-}
-
 class RunningState {
     accumulatedHints: string[];
     generationCycles: number;
@@ -27,7 +27,7 @@ class RunningState {
     lastRunOutput: any; // Replace 'any' with a more specific type if possible
     testResults: TestResults;
     buildState: BuildState;
-    codeChanges: CodeChanges;
+    codeChanges: CodeChangeSummary;
     cycleStartTime: Date | null;
 
     constructor() {
@@ -119,4 +119,4 @@ class RunningState {
     }
 }
 
-export default RunningState; 
+export { RunningState, CodeChangeSummary };

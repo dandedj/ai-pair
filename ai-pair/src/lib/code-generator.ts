@@ -1,8 +1,7 @@
 import { parseAndApplyGeneratedCode } from './code-parser';
 import { logger } from './logger';
-import Config from '../models/config';
-import RunningState from '../models/running-state';
-import CodeChangeSummary from '../models/code-change-summary';
+import { Config } from '../models/config';
+import { RunningState, CodeChangeSummary } from '../models/running-state';
 
 class CodeGenerator {
     client: any; // Replace 'any' with the specific type of the client if available

@@ -2,7 +2,7 @@
   "name": "ai-pair",
   "version": "1.0.0",
   "description": "Core library for AI Pair Programming",
-  "main": "index.js",
+  "main": "dist/index.js",
   "files": [
     "src/**/*",
     "README.md"

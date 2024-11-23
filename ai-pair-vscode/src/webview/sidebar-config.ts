@@ -1,4 +1,10 @@
-function getWebviewContent(stylesUri, scriptUri, config) {
+interface SidebarConfig {
+    stylesUri: string;
+    scriptUri: string;
+    config: any; // Replace 'any' with a more specific type if possible
+}
+
+function getWebviewContent({ stylesUri, scriptUri, config }: SidebarConfig): string {
     return `
         <!DOCTYPE html>
         <html lang="en">
@@ -85,9 +91,9 @@ function getWebviewContent(stylesUri, scriptUri, config) {
                 const vscode = acquireVsCodeApi();
                 console.log('Sidebar script loaded.');
 
-                document.getElementById('activateButton').addEventListener('click', () => {
+                document.getElementById('activateButton')?.addEventListener('click', () => {
                     console.log('Activate button clicked');
-                    document.getElementById('loadingIndicator').style.display = 'block';
+                    document.getElementById('loadingIndicator')!.style.display = 'block';
                     vscode.postMessage({ command: 'activate' });
                 });
 
@@ -96,16 +102,16 @@ function getWebviewContent(stylesUri, scriptUri, config) {
                     console.log('Message received in webview:', message);
                     switch (message.type) {
                         case 'updateProgress':
-                            document.getElementById('progressBar').style.width = message.value + '%';
+                            document.getElementById('progressBar')!.style.width = message.value + '%';
                             break;
                         case 'updateTestResults':
-                            document.getElementById('testResults').innerText = message.value;
+                            document.getElementById('testResults')!.innerText = message.value;
                             break;
                         case 'updateChangedFiles':
-                            document.getElementById('changedFiles').innerText = message.value;
+                            document.getElementById('changedFiles')!.innerText = message.value;
                             break;
                         case 'hideLoading':
-                            document.getElementById('loadingIndicator').style.display = 'none';
+                            document.getElementById('loadingIndicator')!.style.display = 'none';
                             break;
                     }
                 });
@@ -115,4 +121,4 @@ function getWebviewContent(stylesUri, scriptUri, config) {
     `;
 }
 
-module.exports = { getWebviewContent }; 
+export { getWebviewContent }; 

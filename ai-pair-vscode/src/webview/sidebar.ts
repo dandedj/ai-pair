@@ -1,4 +1,4 @@
-function getWebviewContent(stylesUri, scriptUri, config) {
+function getWebviewContent(stylesUri: string, scriptUri: string, config: any): string {
     return `
         <!DOCTYPE html>
         <html lang="en">
@@ -59,25 +59,53 @@ function getWebviewContent(stylesUri, scriptUri, config) {
             </style>
         </head>
         <body>
-            <h1>AI Pair Programmer - Setup</h1>
-            <p>The Pair Programmer needs a selected model and API Key to work properly. </p>
-            <button class="button" id="saveButton">Get Started</button>
+            <h1>AI Pair Programmer</h1>
+            <p>Click the "Activate" button to start the AI Pair Programmer.</p>
+            <button class="button" id="activateButton">Activate</button>
+            <div class="loading" id="loadingIndicator">Loading...</div>
+
+            <div class="pane">
+                <h2>Progress</h2>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+            </div>
+
+            <div class="pane">
+                <h2>Test Status</h2>
+                <div id="testResults">No tests run yet.</div>
+            </div>
+
+            <div class="pane">
+                <h2>Changes</h2>
+                <div id="changedFiles">No changes detected.</div>
+            </div>
 
             <script>
                 const vscode = acquireVsCodeApi();
-                console.log('Sidebar config script loaded.');
+                console.log('Sidebar script loaded.');
 
-                document.getElementById('saveButton').addEventListener('click', () => {
-                    console.log('Save button clicked');
-                    vscode.postMessage({ command: 'config' });
+                document.getElementById('activateButton')?.addEventListener('click', () => {
+                    console.log('Activate button clicked');
+                    document.getElementById('loadingIndicator')!.style.display = 'block';
+                    vscode.postMessage({ command: 'activate' });
                 });
 
                 window.addEventListener('message', event => {
                     const message = event.data;
                     console.log('Message received in webview:', message);
                     switch (message.type) {
-                        case 'saveConfig':
-                            document.getElementById('progressBar').style.width = message.value + '%';
+                        case 'updateProgress':
+                            document.getElementById('progressBar')!.style.width = message.value + '%';
+                            break;
+                        case 'updateTestResults':
+                            document.getElementById('testResults')!.innerText = message.value;
+                            break;
+                        case 'updateChangedFiles':
+                            document.getElementById('changedFiles')!.innerText = message.value;
+                            break;
+                        case 'hideLoading':
+                            document.getElementById('loadingIndicator')!.style.display = 'none';
                             break;
                     }
                 });
@@ -87,4 +115,4 @@ function getWebviewContent(stylesUri, scriptUri, config) {
     `;
 }
 
-module.exports = { getWebviewContent }; 
+export { getWebviewContent }; 

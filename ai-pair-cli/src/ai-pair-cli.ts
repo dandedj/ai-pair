@@ -4,9 +4,7 @@ import path from 'path';
 import { configureLogger } from 'ai-pair/src/lib/logger'; // Adjust the path if necessary
 import { loadCommandLineConfig } from './config-loader';
 import { clearDirectory } from 'ai-pair/src/lib/file-utils';
-import AIPair from 'ai-pair/src/ai-pair';
-import Config from 'ai-pair/src/models/config';
-import RunningState from 'ai-pair/src/models/running-state';
+import { AIPair, Config, RunningState } from 'ai-pair';
 
 // Load configuration data
 const configData = loadCommandLineConfig();

@@ -4,8 +4,8 @@ import xml2js from 'xml2js';
 import { execSync } from 'child_process';
 import { ensureDirectoryExists, clearFile } from './file-utils';
 import { logger } from './logger';
-import Config from '../models/config';
-import RunningState from '../models/running-state';
+import { Config } from '../models/config';
+import { RunningState } from '../models/running-state';
 
 class TestRunner {
     constructor() {}

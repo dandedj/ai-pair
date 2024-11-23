@@ -1,7 +1,7 @@
 import minimist from 'minimist';
 import path from 'path';
 import fs from 'fs';
-import Config from 'ai-pair/src/models/config';
+import { Config } from 'ai-pair';
 
 function loadCommandLineConfig(): Config {
     const args = process.argv.slice(2);
