@@ -47,4 +47,4 @@ class BaseAIClient {
     }
 }
 
-module.exports = BaseAIClient; 
+module.exports = BaseAIClient;

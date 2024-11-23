@@ -1,5 +1,4 @@
-class RunningState {
-    constructor() {
+class RunningState {    constructor() {
         this.accumulatedHints = [];
         this.generationCycles = 0;
         this.changesPerCycle = [];

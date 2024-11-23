@@ -1,5 +1,6 @@
 const minimist = require('minimist');
 const path = require('path');
+const fs = require('fs');
 
 function loadCommandLineConfig() {
     const args = process.argv.slice(2);
@@ -22,25 +23,16 @@ function loadCommandLineConfig() {
         }
     });
 
-    console.log('Project Root:', parsedArgs['projectRoot']);
-    console.log('Prompts Path:', parsedArgs['promptsPath']);
+    const configFilePath = path.join(process.cwd(), 'ai-pair-config.json');
 
-    // Resolve paths
-    if (parsedArgs['projectRoot']) {
-        parsedArgs['projectRoot'] = path.resolve(parsedArgs['projectRoot']);
+    // print the config file path
+    console.log('Config file path:', configFilePath);
+
+    if (fs.existsSync(configFilePath)) {
+        const fileConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
+        return { ...parsedArgs, ...fileConfig };
     }
 
-    if (parsedArgs['promptsPath']) {
-        parsedArgs['promptsPath'] = path.resolve(parsedArgs['promptsPath']);
-    }
-
-    if (parsedArgs['tmpDir']) {
-        parsedArgs['tmpDir'] = path.resolve(parsedArgs['tmpDir']);
-    }
-
-    console.log('Parsed Args:', parsedArgs);
-
-    // Return the parsed configuration data
     return parsedArgs;
 }
 

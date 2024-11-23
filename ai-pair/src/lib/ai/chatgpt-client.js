@@ -8,23 +8,39 @@ class ChatGPTClient extends BaseAIClient {
         this.apiUrl = 'https://api.openai.com/v1/chat/completions';
     }
 
-    async generateCode(prompt, tmpDir, systemPrompt = '') {
+    async generateCode(prompt, systemPrompt = '') {
         const timestamp = this.logRequest(prompt);
 
         try {
-            const messages = [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: prompt },
-            ];
+            // Determine if the model is an 'o1' model
+            const isO1Model = this.model.startsWith('o1');
 
+            // Construct messages
+            const messages = isO1Model
+                ? [{ role: 'user', content: prompt }]
+                : [
+                      { role: 'system', content: systemPrompt },
+                      { role: 'user', content: prompt },
+                  ];
+
+            // Set the correct token parameter key
+            const maxTokens = 4096;
+            const maxCompletionTokens = 32768;
+            const tokenParamKey = isO1Model ? 'max_completion_tokens' : 'max_tokens';
+            const temperature = isO1Model ? 1.0 : 0.5;
+
+            // Prepare request body with dynamic token parameter
+            const requestBody = {
+                model: this.model,
+                messages: messages,
+                temperature: temperature,
+                [tokenParamKey]: isO1Model ? maxCompletionTokens : maxTokens,
+            };
+
+            // Make API request
             const response = await axios.post(
                 this.apiUrl,
-                {
-                    model: this.model,
-                    messages: messages,
-                    max_tokens: 2048,
-                    temperature: 0.5,
-                },
+                requestBody,
                 {
                     headers: {
                         'Content-Type': 'application/json',
@@ -32,6 +48,7 @@ class ChatGPTClient extends BaseAIClient {
                     },
                 }
             );
+            // this.logResponse(response, timestamp);
 
             const generatedCode = response.data.choices[0].message.content.trim();
             this.logResponse(generatedCode, timestamp);
@@ -42,6 +59,12 @@ class ChatGPTClient extends BaseAIClient {
             return generatedCode;
         } catch (error) {
             logger.error('Error generating code:', error);
+            console.error(error.stack);
+
+            // Print the HTTP response if available
+            if (error.response && error.response.data) {
+                console.log(error.response.data);
+            }
             throw error;
         }
     }

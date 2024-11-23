@@ -78,3 +78,5 @@ ai_pair/tmp
 *.old
 *.orig
 *.rej
+
+ai-pair-config.json

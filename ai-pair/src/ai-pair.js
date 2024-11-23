@@ -10,8 +10,9 @@ const {
     collectFilesWithExtension,
     clearDirectory,
 } = require("./lib/file-utils");
-const AIClientFactory = require("./lib/ai-client-factory");
-const configData = require("./config");
+const AIClientFactory = require("./lib/ai/ai-client-factory");
+const configData = require("./models/config");
+const RunningState = require("./models/running-state");
 const TestRunner = require("./lib/test-runner");
 const CodeGenerator = require("./lib/code-generator");
 const { delay, startSpinner } = require("./lib/utils");
@@ -24,8 +25,8 @@ class AIPair {
         this.logger = logger;
 
         // Initialize AI client using the factory
-        const clientFactory = new AIClientFactory(this.config);
-        this.client = clientFactory.createClient(this.config.model);
+        const clientFactory = new AIClientFactory();
+        this.client = clientFactory.createClient(this.config);
 
         // Initialize CodeGenerator without config and runningState
         this.codeGenerator = new CodeGenerator(this.client);
@@ -105,6 +106,8 @@ class AIPair {
      */
     async performCodeGenerationCycle(force = false) {
         this.logger.debug("Starting code generation cycle");
+
+        this.runningState.resetCycleState();
 
         // Set the cycle start time
         this.runningState.setCycleStartTime();
@@ -465,21 +468,6 @@ class AIPair {
                 this.logger.error(`Watcher error: ${error}`);
             });
 
-            // Allow the user to stop watching (optional)
-            console.log('Press "x" or "e" and Enter to stop watching for changes.');
-
-            const checkForExit = () => {
-                const input = readline.question('');
-                if (input.toLowerCase() === 'x' || input.toLowerCase() === 'e') {
-                    watcher.close();
-                    this.logger.info('Stopped watching for file changes.');
-                    resolve();
-                } else {
-                    checkForExit();
-                }
-            };
-
-            checkForExit();
         });
     }
 }

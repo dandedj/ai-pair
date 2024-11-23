@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const { logger } = require('../lib/logger');
 
 class Config {
     constructor(configData) {
@@ -9,14 +8,15 @@ class Config {
         this.extension = configData.extension || '.java';
         this.srcDir = path.resolve(this.projectRoot, configData.srcDir || 'src/main/java');
         this.testDir = path.resolve(this.projectRoot, configData.testDir || 'src/test');
+
         this.apiKeys = {
             anthropic: configData.anthropicApiKey || process.env.ANTHROPIC_API_KEY,
             openai: configData.openaiApiKey || process.env.OPENAI_API_KEY,
             gemini: configData.geminiApiKey || process.env.GEMINI_API_KEY,
         };
 
-        // make sure that the apiKeys object has all the required keys
-        if (!this.apiKeys.anthropic || !this.apiKeys.openai || !this.apiKeys.gemini) {
+        // make sure that one apiKeys object has all the required keys
+        if (!(this.apiKeys.anthropic || this.apiKeys.openai || this.apiKeys.gemini)) {
             throw new Error("API keys are not provided");
         }
         
