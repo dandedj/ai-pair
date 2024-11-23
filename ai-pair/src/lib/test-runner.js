@@ -38,7 +38,9 @@ class TestRunner {
       fs.writeFileSync(testOutputPath, result.toString());
 
       this.appendXmlTestResults(config, runningState);
-
+      runningState.buildState.compiledSuccessfully = true;
+      runningState.buildState.lastCompileTime = new Date();
+      
       return runningState.testsPassed;
     } catch (error) {
       const stdout = error.stdout ? error.stdout.toString() : '';
@@ -51,7 +53,7 @@ class TestRunner {
         logger.error('Compilation failed. Tests not run.');
         runningState.buildState.compiledSuccessfully = false;
       } else {
-        runningState.buildState.compilationFailed = false;
+        runningState.buildState.compiledSuccessfully = true;
       }
 
       return false;
@@ -61,6 +63,7 @@ class TestRunner {
   appendXmlTestResults(config, runningState) {
     const testResultsDir = path.resolve(config.projectRoot, 'build/test-results/test');
     const testOutputPath = path.join(config.tmpDir, 'test_output.txt');
+
     const parser = new xml2js.Parser();
 
     if (fs.existsSync(testResultsDir)) {
@@ -85,15 +88,11 @@ class TestRunner {
                 // Update RunningState
                 if (failure) {
                   runningState.testResults.testsPassed = false;
-                  runningState.buildState.compiledSuccessfully = false;
                   runningState.testResults.failedTests.push(`${className}.${testName}`);
                 } else if (error) {
                   runningState.testResults.testsPassed = false;
-                  runningState.buildState.compiledSuccessfully = true;
                   runningState.testResults.erroredTests.push(`${className}.${testName}`);
                 } else {
-                  runningState.testResults.testsPassed = true;
-                  runningState.buildState.compiledSuccessfully = true;
                   runningState.testResults.passedTests.push(`${className}.${testName}`);
                 }
               });

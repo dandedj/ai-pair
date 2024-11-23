@@ -107,6 +107,8 @@ class AIPair {
     async performCodeGenerationCycle(force = false) {
         this.logger.debug("Starting code generation cycle");
 
+        this.runningState.resetCycleState();
+
         // Set the cycle start time
         this.runningState.setCycleStartTime();
 
@@ -466,21 +468,6 @@ class AIPair {
                 this.logger.error(`Watcher error: ${error}`);
             });
 
-            // Allow the user to stop watching (optional)
-            console.log('Press "x" or "e" and Enter to stop watching for changes.');
-
-            const checkForExit = () => {
-                const input = readline.question('');
-                if (input.toLowerCase() === 'x' || input.toLowerCase() === 'e') {
-                    watcher.close();
-                    this.logger.info('Stopped watching for file changes.');
-                    resolve();
-                } else {
-                    checkForExit();
-                }
-            };
-
-            checkForExit();
         });
     }
 }
