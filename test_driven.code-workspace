@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "ai-pair-vscode",
+      "path": "ai-pair-vscode"
+    },
+    {
+      "name": "ai-pair",
+      "path": "ai-pair"
+    },
+    {
+      "name": "ai-pair-cli",
+      "path": "ai-pair-cli"
+    }
+  ],
+  "settings": {}
+} 

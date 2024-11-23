@@ -16,7 +16,8 @@
     "readline-sync": "^1.4.10"
   },
   "scripts": {
-    "start": "node src/AIPair.js"
+    "build": "tsc",
+    "start": "node dist/ai-pair-cli.js"
   },
   "devDependencies": {
     "@types/minimist": "^1.2.5"

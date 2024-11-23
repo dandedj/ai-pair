@@ -13,7 +13,10 @@
     "onCommand:ai-pair-programmer.stop",
     "onCommand:ai-pair-programmer.toggle"
   ],
-  "main": "./src/extension.js",
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "tsc"
+  },
   "contributes": {
     "commands": [
       {

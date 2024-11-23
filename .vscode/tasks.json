@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "typescript",
+			"tsconfig": "ai-pair/tsconfig.json",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build",
+			"label": "tsc: build - ai-pair/tsconfig.json"
+		},
+		{
+			"type": "npm",
+			"script": "start-cli",
+			"path": "ai-pair-cli",
+			"problemMatcher": [],
+			"label": "npm: start - ai-pair-cli",
+			"detail": "node dist/ai-pair-cli.js"
+		}
+	]
+}

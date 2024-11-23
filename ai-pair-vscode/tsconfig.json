@@ -1,22 +1,18 @@
 {
     "compilerOptions": {
-      "target": "ES6",                          // Specify ECMAScript target version
-      "module": "commonjs",  
-      "moduleResolution": "Node",                   // Specify module code generation
-      "strict": true,                           // Enable all strict type-checking options
-      "esModuleInterop": true,                  // Enables emit interoperability between CommonJS and ES Modules
-      "skipLibCheck": true,                     // Skip type checking of declaration files
-      "forceConsistentCasingInFileNames": true, // Disallow inconsistently-cased references to the same file
-      "outDir": "./dist",                       // Redirect output structure to the directory
-      "rootDir": "./src",                       // Specify the root directory of input files
-      "resolveJsonModule": true,                // Include modules imported with .json extension
-      "sourceMap": true                         // Generates corresponding .map file
+      "target": "ES6",
+      "module": "commonjs",
+      "outDir": "./dist",
+      "rootDir": "./src",
+      "strict": true,
+      "sourceMap": true,
+      "esModuleInterop": true
     },
     "include": [
-      "src/**/*",                               // Include all TypeScript files in the src directory                        // Ensure ai-pair directory is included
+      "src/**/*",
     ],
     "exclude": [
-      "node_modules",                           // Exclude node_modules
-      "**/*.spec.ts"                            // Exclude test files if any
+      "node_modules",
+      "**/*.spec.ts"
     ]
   }
