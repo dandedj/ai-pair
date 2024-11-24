@@ -80,13 +80,7 @@ class AIPair {
     async runWithoutInteraction(force: boolean = false): Promise<{ results: any }> {
         this.logger.debug('Clearing temporary directories');
         clearDirectory(this.config.tmpDir);
-        clearDirectory(path.join(this.config.tmpDir, 'archive', 'versions'));
-
-        this.logger.debug('Reading build.gradle.kts file');
-        const buildGradlePath = path.join(this.config.projectRoot, 'build.gradle.kts');
-        const buildGradleContent = fs.existsSync(buildGradlePath)
-            ? fs.readFileSync(buildGradlePath, 'utf-8')
-            : '';
+        clearDirectory(path.join(this.config.tmpDir, 'archive', 'versions'));        
 
         const results = await this.performCodeGenerationCycle(force);
 

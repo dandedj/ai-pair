@@ -1,35 +1,27 @@
 {
   "name": "ai-pair-programmer",
   "displayName": "AI Pair Programmer",
-  "publisher": "Dandeneau LLC",
-  "version": "0.1.0",
+  "description": "An AI pair programmer extension for VS Code.",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.60.0"
   },
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
-    "*",
-    "onView:aiPairProgrammerPanel",
-    "onCommand:ai-pair-programmer.start",
-    "onCommand:ai-pair-programmer.stop",
-    "onCommand:ai-pair-programmer.toggle"
+    "*"
   ],
   "main": "./dist/extension.js",
-  "scripts": {
-    "build": "tsc"
-  },
   "contributes": {
     "commands": [
       {
-        "command": "ai-pair-programmer.start",
-        "title": "Start AI Pair Programmer"
-      },
-      {
-        "command": "ai-pair-programmer.stop",
-        "title": "Stop AI Pair Programmer"
+        "command": "ai-pair-programmer.startCycle",
+        "title": "AI Pair Programmer: Start Cycle"
       },
       {
         "command": "ai-pair-programmer.toggle",
-        "title": "Toggle AI Pair Programmer"
+        "title": "AI Pair Programmer: Toggle Sidebar"
       }
     ],
     "viewsContainers": {
@@ -49,79 +41,17 @@
           "name": "AI Pair Programmer"
         }
       ]
-    },
-    "configuration": {
-      "title": "AI Pair Settings",
-      "properties": {
-        "ai-pair.model": {
-          "type": "string",
-          "default": "gpt-4o",
-          "description": "AI Model to use for code generation.",
-          "enum": [
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-3.5-turbo",
-            "claude-3-5-sonnet",
-            "gemini-1.5-pro",
-            "gemini-2"
-          ]
-        },
-        "ai-pair.extension": {
-          "type": "string",
-          "default": ".java",
-          "description": "File extension to target (e.g., .java, .js)."
-        },
-        "ai-pair.testDir": {
-          "type": "string",
-          "default": "src/test",
-          "description": "Relative path to the test directory."
-        },
-        "ai-pair.openaiApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "OpenAI API key."
-        },
-        "ai-pair.anthropicApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Anthropic API key."
-        },
-        "ai-pair.geminiApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Gemini API key."
-        },
-        "ai-pair.logLevel": {
-          "type": "string",
-          "default": "info",
-          "description": "Logging level.",
-          "enum": [
-            "error",
-            "warn",
-            "info",
-            "debug",
-            "trace"
-          ]
-        },
-        "ai-pair.numRetries": {
-          "type": "number",
-          "default": 3,
-          "description": "Number of retries for code generation."
-        }
-      }
     }
   },
+  "scripts": {
+    "build": "tsc && copyfiles -u 1 src/webview/**/* dist"
+  },
   "devDependencies": {
-    "@eslint/js": "^9.13.0",
-    "@stylistic/eslint-plugin": "^2.9.0",
-    "@types/node": "^20",
-    "@types/vscode": "^1.73.0",
-    "eslint": "^9.13.0",
-    "typescript": "^5.6.2",
-    "typescript-eslint": "^8.11.0"
+    "@types/vscode": "^1.60.0",
+    "copyfiles": "^2.4.1",
+    "typescript": "^4.5.0"
   },
   "dependencies": {
-    "ai-pair": "file:../ai-pair"
-  },
-  "icon": "src/webview/icon.png"
+    "ai-pair": "^1.0.0"
+  }
 }
