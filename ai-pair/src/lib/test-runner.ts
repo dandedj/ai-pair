@@ -36,21 +36,31 @@ class TestRunner {
             logger.debug('Running tests with Gradle using command: gradle clean test');
             const result = execSync('gradle clean test', { cwd: config.projectRoot });
             runningState.lastRunOutput = result.toString();
+
+            // write the output to the test output file
+            console.log('Writing test output to file: ', testOutputPath);
             fs.writeFileSync(testOutputPath, result.toString());
 
             this.appendXmlTestResults(config, runningState);
 
+            console.log('Compilation and tests passed successfully');
             runningState.buildState.compiledSuccessfully = true;
             runningState.buildState.lastCompileTime = new Date();
+            runningState.testResults.lastRunTime = new Date();
+            runningState.testResults.testsPassed = true;
 
             return runningState.testResults.testsPassed;
         } catch (error: any) {
+            console.log('Compilation and tests failed');
             const stdout = error.stdout ? error.stdout.toString() : '';
             const stderr = error.stderr ? error.stderr.toString() : '';
+            console.log('stdout: ', stdout);
+            console.log('stderr: ', stderr);
             fs.writeFileSync(testOutputPath, stdout + stderr);
             runningState.lastRunOutput = stdout + stderr;
             this.appendXmlTestResults(config, runningState);
 
+            // TODO: this needs to change depending on the project type
             if (runningState.lastRunOutput.includes('Compilation failed')) {
                 logger.error('Compilation failed. Tests not run.');
                 runningState.buildState.compiledSuccessfully = false;
@@ -67,6 +77,8 @@ class TestRunner {
         const testOutputPath = path.join(config.tmpDir, 'test_output.txt');
 
         const parser = new xml2js.Parser();
+
+        console.log('Processing test results from directory: ', testResultsDir);
 
         if (fs.existsSync(testResultsDir)) {
             fs.readdirSync(testResultsDir).forEach(file => {
@@ -85,6 +97,7 @@ class TestRunner {
                                 const status = failure ? 'FAILED' : error ? 'ERROR' : 'PASSED';
                                 const message = failure || error || 'Test passed successfully.';
                                 const output = `Test: ${className}.${testName} - ${status}\n${message}\n\n`;
+                                console.log('Appending test output to file: ', testOutputPath);
                                 fs.appendFileSync(testOutputPath, output);
 
                                 // Update RunningState
