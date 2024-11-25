@@ -16,7 +16,8 @@ function loadCommandLineConfig(): Config {
             t: 'testDir',
             l: 'logLevel',
             td: 'tmpDir',
-            pp: 'promptsPath'
+            pp: 'promptsPath',
+            nr: 'numRetries'
         },
         default: { 
             model: 'gpt-4o', 
@@ -24,6 +25,7 @@ function loadCommandLineConfig(): Config {
             testDir: 'src/test/java', 
             tmpDir: 'tmp',
             logLevel: 'debug', 
+            numRetries: 3
         }
     });
 

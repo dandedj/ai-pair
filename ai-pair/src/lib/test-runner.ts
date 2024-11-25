@@ -125,6 +125,25 @@ class TestRunner {
         }
         return 'No test output available.';
     }
+
+        extractClassNameFromTest(test: string): string {
+        let className = '';
+
+        if (test.includes('(')) {
+            const match = test.match(/\(([^)]+)\)/);
+            className = match ? match[1] : test;
+        } else {
+            className = test;
+        }
+
+        const parts = className.split('.');
+        const lastPart = parts[parts.length - 1];
+        if (lastPart && lastPart[0] === lastPart[0].toLowerCase()) {
+            className = parts.slice(0, -1).join('.');
+        }
+
+        return className;
+    }
 }
 
 export default TestRunner; 

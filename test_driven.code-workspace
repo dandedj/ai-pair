@@ -11,7 +11,11 @@
     {
       "name": "ai-pair-cli",
       "path": "ai-pair-cli"
-    }
+    },
+    {
+      "name": "sample_java_gradle_project",
+      "path": "sample_java_gradle_project"
+    },
   ],
   "settings": {}
 } 

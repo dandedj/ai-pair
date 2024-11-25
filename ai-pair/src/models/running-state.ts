@@ -23,8 +23,7 @@ interface BuildState {
 class RunningState {
     accumulatedHints: string[];
     generationCycles: number;
-    changesPerCycle: any[]; // Replace 'any' with a more specific type if possible
-    lastRunOutput: any; // Replace 'any' with a more specific type if possible
+    lastRunOutput: string; // Replace 'any' with a more specific type if possible
     testResults: TestResults;
     buildState: BuildState;
     codeChanges: CodeChangeSummary;
@@ -33,8 +32,7 @@ class RunningState {
     constructor() {
         this.accumulatedHints = [];
         this.generationCycles = 0;
-        this.changesPerCycle = [];
-        this.lastRunOutput = null;
+        this.lastRunOutput = "";
         this.testResults = {
             testsPassed: false,
             totalTests: 0,
@@ -78,8 +76,7 @@ class RunningState {
     resetState(): void {
         this.accumulatedHints = [];
         this.generationCycles = 0;
-        this.changesPerCycle = [];
-        this.lastRunOutput = null;
+        this.lastRunOutput = "";
         this.testResults = {
             testsPassed: false,
             totalTests: 0,
@@ -115,7 +112,7 @@ class RunningState {
             compiledSuccessfully: false,
             lastCompileTime: null,
         };
-        this.lastRunOutput = null;
+        this.lastRunOutput = "";
     }
 }
 

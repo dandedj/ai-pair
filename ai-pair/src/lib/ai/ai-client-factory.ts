@@ -51,6 +51,7 @@ class AIClientFactory {
     }
 
     createClient(config: Config): ChatGPTClient | ClaudeClient | GeminiClient {
+
         const family = this.getModelFamily(config.model);
         const apiKey = this.getApiKeyForModel(config, config.model);
 

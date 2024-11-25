@@ -27,6 +27,7 @@ class AIPair {
     client: ChatGPTClient | ClaudeClient | GeminiClient;
     codeGenerator: CodeGenerator;
     testRunner: TestRunner;
+    clientFactory: AIClientFactory;
     models: { [key: string]: string };
 
     constructor(config: Config, runningState: RunningState) {
@@ -34,8 +35,8 @@ class AIPair {
         this.runningState = runningState;
         this.logger = logger;
 
-        const clientFactory = new AIClientFactory();
-        this.client = clientFactory.createClient(this.config);
+        this.clientFactory = new AIClientFactory();
+        this.client = this.clientFactory.createClient(this.config);
 
         this.codeGenerator = new CodeGenerator(this.client);
         this.testRunner = new TestRunner();
@@ -87,9 +88,31 @@ class AIPair {
         return { results };
     }
 
-    async performCodeGenerationCycle(force: boolean = false): Promise<void> {
-        this.logger.debug('Starting code generation cycle');
+    async performCodeGenerationCyclesWithRetries(force: boolean = false): Promise<void> {
+        let originalModel = this.config.model;
 
+        while (this.runningState.generationCycles < this.config.numRetries) {
+            console.log(`Performing code generation cycle ${this.runningState.generationCycles + 1} of ${this.config.numRetries}`);
+            
+            if (this.runningState.generationCycles === this.config.numRetries - 1) {
+                this.logger.info('Last retry, switching to o1-preview model');
+                this.config.model = "o1-preview";
+                this.client = this.clientFactory.createClient(this.config);
+                this.codeGenerator = new CodeGenerator(this.client);
+            }
+            this.runningState.generationCycles++;
+            const testsPassed = await this.performCodeGenerationCycle(force);
+            if (testsPassed) {
+                return;
+            }
+        }
+
+        this.config.model = originalModel;
+        this.client = this.clientFactory.createClient(this.config);
+        this.codeGenerator = new CodeGenerator(this.client);
+    }
+
+    async performCodeGenerationCycle(force: boolean = false): Promise<boolean> {
         this.runningState.resetCycleState();
         this.runningState.setCycleStartTime();
 
@@ -106,7 +129,9 @@ class AIPair {
                 this.logger.info('Project compilation failed!');
             } else if (this.runningState.testResults.testsPassed) {
                 this.logger.info('Project compiles and all tests passed! No changes needed.');
-                return;
+                // Reset the generation cycle counter
+                this.runningState.generationCycles = 0;
+                return true;
             }
         } else {
             this.runningState.testResults = {
@@ -125,7 +150,9 @@ class AIPair {
             !force
         ) {
             this.logger.info('Project compiles and all tests passed! No changes needed.');
-            return;
+            // Reset the generation cycle counter
+            this.runningState.generationCycles = 0;
+            return true;
         }
 
         this.logger.debug('Collecting files for code generation');
@@ -161,7 +188,6 @@ class AIPair {
         );
 
         this.runningState.codeChanges = codeChanges;
-        this.runningState.generationCycles++;
 
         this.logger.debug('Retrying tests after applying AI-generated code');
         this.testRunner.runTests(this.config, this.runningState);
@@ -172,6 +198,8 @@ class AIPair {
             this.logger.info(`Last run output: ${this.runningState.lastRunOutput}`);
         }
         this.logger.info(`Project compiled successfully: ${this.runningState.buildState.compiledSuccessfully}`);
+
+        return this.runningState.testResults.testsPassed;
     }
 
     collectTestFiles(force: boolean): CodeFile[] {
@@ -184,7 +212,7 @@ class AIPair {
             );
         } else if (!this.runningState.testResults.testsPassed) {
             testFiles = this.runningState.testResults.failedTests.map((test) => {
-                const className = this.extractClassNameFromTest(test);
+                const className = this.testRunner.extractClassNameFromTest(test);
                 const testFilePath = path.join(
                     this.config.testDir,
                     className.replace(/\./g, '/') + this.config.extension
@@ -206,25 +234,6 @@ class AIPair {
         }
 
         return testFiles;
-    }
-
-    extractClassNameFromTest(test: string): string {
-        let className = '';
-
-        if (test.includes('(')) {
-            const match = test.match(/\(([^)]+)\)/);
-            className = match ? match[1] : test;
-        } else {
-            className = test;
-        }
-
-        const parts = className.split('.');
-        const lastPart = parts[parts.length - 1];
-        if (lastPart && lastPart[0] === lastPart[0].toLowerCase()) {
-            className = parts.slice(0, -1).join('.');
-        }
-
-        return className;
     }
 
     constructPrompt(filesContent: string, buildGradleContent: string): string {
@@ -253,11 +262,16 @@ class AIPair {
     }
 
     async generateCodeWithRetries(prompt: string): Promise<string> {
-        const spinner = startSpinner('Generating code');
+        const spinner = startSpinner('Generating code ');
         let generatedCode: string = '';
-        const maxAttempts = this.config.numRetries || 3;
+        const maxAttempts = this.config.numRetries;
 
         for (let attempts = 1; attempts <= maxAttempts; attempts++) {
+            // if this is the last cycle before hitting the max retries, switch to the o1-preview model
+            if (attempts === maxAttempts) {
+                this.config.model = 'o1-preview';
+            }
+
             try {
                 generatedCode = await this.codeGenerator.generateCode(prompt, this.config);
                 break;
@@ -284,7 +298,7 @@ class AIPair {
             this.runningState = new RunningState();
         }
 
-        await this.performCodeGenerationCycle();
+        this.runningState.generationCycles = 0;
 
         let exit = false;
 
@@ -299,7 +313,7 @@ class AIPair {
             switch (action.toLowerCase()) {
                 case 'c':
                     logger.info('Forcing code generation...');
-                    await this.performCodeGenerationCycle(true);
+                    await this.performCodeGenerationCyclesWithRetries(true);
                     break;
                 case 'w':
                     logger.info('Starting to watch for file changes...');
@@ -308,7 +322,7 @@ class AIPair {
                 case 'h':
                     const hint = readline.question('Enter your hint: ');
                     this.runningState.addHint(hint);
-                    await this.performCodeGenerationCycle(true);
+                    await this.performCodeGenerationCyclesWithRetries(true);
                     break;
                 case 'x':
                 case 'e':
@@ -330,6 +344,9 @@ class AIPair {
             this.logger.info(`Source directory being watched: ${srcDirPath}`);
             this.logger.info(`Test directory being watched: ${testDirPath}`);
 
+            this.runningState.generationCycles = 0;
+            this.runningState.resetCycleState();
+
             const watcher = chokidar.watch([srcDirPath, testDirPath], {
                 persistent: true,
             });
@@ -346,17 +363,17 @@ class AIPair {
 
             watcher.on('change', async (filePath) => {
                 this.logger.info(`File changed: ${filePath}`);
-                await this.performCodeGenerationCycle();
+                await this.performCodeGenerationCyclesWithRetries();
             });
 
             watcher.on('add', async (filePath) => {
                 this.logger.info(`File added: ${filePath}`);
-                await this.performCodeGenerationCycle();
+                await this.performCodeGenerationCyclesWithRetries();
             });
 
             watcher.on('unlink', async (filePath) => {
                 this.logger.info(`File removed: ${filePath}`);
-                await this.performCodeGenerationCycle();
+                await this.performCodeGenerationCyclesWithRetries();
             });
 
             watcher.on('error', (error) => {
