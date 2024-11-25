@@ -1,7 +1,7 @@
 import { AIPair, CodeFile } from './ai-pair';
-import ChatGPTClient from './lib/ai/chatgpt-client';
-import ClaudeClient from './lib/ai/claude-client';
-import GeminiClient from './lib/ai/gemini-client';
+import { ChatGPTClient } from './lib/ai/chatgpt-client';
+import { ClaudeClient } from './lib/ai/claude-client';
+import { GeminiClient } from './lib/ai/gemini-client';
 import { parseAndApplyGeneratedCode } from './lib/code-parser';
 import { clearDirectory, collectFilesWithExtension } from './lib/file-utils';
 import { configureLogger, logger, LoggerOptions } from './lib/logger';

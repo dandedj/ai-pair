@@ -8,7 +8,6 @@ class ChatGPTClient extends BaseAIClient {
 
     constructor(apiKey: string, model: string = 'gpt-4o', tmpDir: string) {
         super(apiKey, model, tmpDir);
-        console.log('ChatGPTClient constructor called with model and apiKey:', model, apiKey);
         this.openai = new OpenAI({apiKey: apiKey});
     }
 
@@ -66,4 +65,4 @@ class ChatGPTClient extends BaseAIClient {
     }
 }
 
-export default ChatGPTClient; 
+export { ChatGPTClient }; 

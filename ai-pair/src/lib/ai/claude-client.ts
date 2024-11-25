@@ -58,4 +58,4 @@ class ClaudeClient extends BaseAIClient {
     }
 }
 
-export default ClaudeClient; 
+export { ClaudeClient }; 
