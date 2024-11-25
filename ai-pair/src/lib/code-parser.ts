@@ -18,7 +18,7 @@ interface FileSection {
  * @param runningState - The running state to update with code changes.
  * @returns Details about the changes made.
  */
-function parseAndApplyGeneratedCode(config: Config, generatedCode: string, runningState: RunningState): CodeChangeSummary {
+function parseAndApplyGeneratedCode(config: Config, runningState: RunningState, generatedCode: string): CodeChangeSummary {
     logger.debug(`Parsing and applying generated code.`);
 
     const fileSections = splitIntoFileSections(generatedCode);

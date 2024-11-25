@@ -1,32 +1,25 @@
-import path from 'path';
-import readline from 'readline-sync';
 import chokidar from 'chokidar';
 import fs from 'fs';
+import path from 'path';
+import readline from 'readline-sync';
+import AIClientFactory from './lib/ai/ai-client-factory';
 import ChatGPTClient from './lib/ai/chatgpt-client';
 import ClaudeClient from './lib/ai/claude-client';
 import GeminiClient from './lib/ai/gemini-client';
-import { parseAndApplyGeneratedCode } from './lib/code-parser';
-import { collectFilesWithExtension, clearDirectory } from './lib/file-utils';
-import AIClientFactory from './lib/ai/ai-client-factory';
-import { Config } from './models/config';
-import { RunningState } from './models/running-state';
-import TestRunner from './lib/test-runner';
-import CodeGenerator from './lib/code-generator';
-import { delay, startSpinner } from './lib/spinner-utils';
+import { constructPrompt } from './lib/ai/prompt-utils';
+import { clearDirectory, collectFilesWithExtension } from './lib/file-utils';
 import { logger } from './lib/logger';
-
-interface CodeFile {
-    path: string;
-    content: string;
-}
+import { delay, startSpinner } from './lib/spinner-utils';
+import { runTests, collectTestFiles } from './lib/test-utils';
+import { Config } from './models/config';
+import { CodeFile, RunningState } from './models/running-state';
+import { parseAndApplyGeneratedCode } from './lib/code-parser';
 
 class AIPair {
     config: Config;
     runningState: RunningState;
     logger: typeof logger;
     client: ChatGPTClient | ClaudeClient | GeminiClient;
-    codeGenerator: CodeGenerator;
-    testRunner: TestRunner;
     clientFactory: AIClientFactory;
     models: { [key: string]: string };
 
@@ -34,12 +27,8 @@ class AIPair {
         this.config = config;
         this.runningState = runningState;
         this.logger = logger;
-
         this.clientFactory = new AIClientFactory();
         this.client = this.clientFactory.createClient(this.config);
-
-        this.codeGenerator = new CodeGenerator(this.client);
-        this.testRunner = new TestRunner();
 
         this.models = {
             'gpt-4o': 'openai',
@@ -98,7 +87,6 @@ class AIPair {
                 this.logger.info('Last retry, switching to o1-preview model');
                 this.config.model = "o1-preview";
                 this.client = this.clientFactory.createClient(this.config);
-                this.codeGenerator = new CodeGenerator(this.client);
             }
             this.runningState.generationCycles++;
             const testsPassed = await this.performCodeGenerationCycle(force);
@@ -109,7 +97,6 @@ class AIPair {
 
         this.config.model = originalModel;
         this.client = this.clientFactory.createClient(this.config);
-        this.codeGenerator = new CodeGenerator(this.client);
     }
 
     async performCodeGenerationCycle(force: boolean = false): Promise<boolean> {
@@ -123,7 +110,7 @@ class AIPair {
 
         if (!force) {
             this.logger.debug('Performing tests to determine if changes are needed');
-            this.testRunner.runTests(this.config, this.runningState);
+            runTests(this.config, this.runningState);
 
             if (this.runningState.buildState.compiledSuccessfully === false) {
                 this.logger.info('Project compilation failed!');
@@ -162,7 +149,7 @@ class AIPair {
             this.config.extension
         );
 
-        const testFiles = this.collectTestFiles(force);
+        const testFiles = collectTestFiles(force, this.config, this.runningState);
 
         this.logger.debug(
             `${codeFiles.length} code files and ${testFiles.length} test files will be used for code generation`
@@ -175,22 +162,19 @@ class AIPair {
             })
             .join('\n\n');
 
-        const prompt = this.constructPrompt(filesContent, buildGradleContent);
+        const prompt = constructPrompt(this.config, this.runningState, filesContent, buildGradleContent);
+        const systemPrompt = this.config.systemPrompt;
 
         this.logger.debug('Sending prompt to AI service');
 
-        const generatedCode = await this.generateCodeWithRetries(prompt);
+        const generatedCode = await this.generateCodeWithRetries(prompt, systemPrompt);
 
-        const codeChanges = this.codeGenerator.applyGeneratedCode(
-            generatedCode,
-            this.config,
-            this.runningState
-        );
+        const codeChanges = parseAndApplyGeneratedCode(this.config, this.runningState, generatedCode);
 
         this.runningState.codeChanges = codeChanges;
 
         this.logger.debug('Retrying tests after applying AI-generated code');
-        this.testRunner.runTests(this.config, this.runningState);
+        runTests(this.config, this.runningState);
 
         this.logger.info(`Tests passed: ${this.runningState.testResults.testsPassed}`);
 
@@ -202,66 +186,7 @@ class AIPair {
         return this.runningState.testResults.testsPassed;
     }
 
-    collectTestFiles(force: boolean): CodeFile[] {
-        let testFiles: CodeFile[] = [];
-
-        if (this.runningState.buildState.compiledSuccessfully === false) {
-            testFiles = collectFilesWithExtension(
-                [this.config.testDir],
-                this.config.extension
-            );
-        } else if (!this.runningState.testResults.testsPassed) {
-            testFiles = this.runningState.testResults.failedTests.map((test) => {
-                const className = this.testRunner.extractClassNameFromTest(test);
-                const testFilePath = path.join(
-                    this.config.testDir,
-                    className.replace(/\./g, '/') + this.config.extension
-                );
-                this.logger.debug(`Constructed test file path: ${testFilePath}`);
-
-                return {
-                    path: testFilePath,
-                    content: fs.existsSync(testFilePath)
-                        ? fs.readFileSync(testFilePath, 'utf-8')
-                        : '',
-                };
-            });
-        } else if (force) {
-            testFiles = collectFilesWithExtension(
-                [path.join(this.config.testDir)],
-                this.config.extension
-            );
-        }
-
-        return testFiles;
-    }
-
-    constructPrompt(filesContent: string, buildGradleContent: string): string {
-        let prompt;
-
-        if (this.runningState.testResults.testsPassed) {
-            prompt = this.config.noIssuePromptTemplate
-                .replace('{filesContent}', filesContent)
-                .replace('{buildGradleContent}', buildGradleContent);
-
-            if (this.runningState.accumulatedHints.length > 0) {
-                prompt += `\n\nUser hints: ${this.runningState.accumulatedHints.join('; ')}`;
-            }
-        } else {
-            prompt = this.config.promptTemplate
-                .replace('{testOutput}', this.runningState.lastRunOutput)
-                .replace('{filesContent}', filesContent)
-                .replace('{buildGradleContent}', buildGradleContent);
-
-            if (this.runningState.accumulatedHints.length > 0) {
-                prompt += `\n\nHints for improvement: ${this.runningState.accumulatedHints.join('; ')}`;
-            }
-        }
-
-        return prompt;
-    }
-
-    async generateCodeWithRetries(prompt: string): Promise<string> {
+    async generateCodeWithRetries(prompt: string, systemPrompt: string): Promise<string> {
         const spinner = startSpinner('Generating code ');
         let generatedCode: string = '';
         const maxAttempts = this.config.numRetries;
@@ -273,7 +198,7 @@ class AIPair {
             }
 
             try {
-                generatedCode = await this.codeGenerator.generateCode(prompt, this.config);
+                generatedCode = await this.client.generateCode(prompt, systemPrompt);
                 break;
             } catch (error: any) {
                 this.logger.error(`Error generating code (attempt ${attempts}): ${error.message}`);
@@ -383,4 +308,4 @@ class AIPair {
     }
 }
 
-export default AIPair; 
+export { AIPair, CodeFile };
