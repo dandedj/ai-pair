@@ -50,7 +50,7 @@ function runTests(config: Config, runningState: RunningState): boolean {
 
         return runningState.testResults.testsPassed;
     } catch (error: any) {
-        console.log('Compilation and tests failed');
+        console.log('Compilation and tests failed : ');
         const stdout = error.stdout ? error.stdout.toString() : '';
         const stderr = error.stderr ? error.stderr.toString() : '';
         logger.debug('stdout: ', stdout);
