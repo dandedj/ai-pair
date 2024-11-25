@@ -37,12 +37,12 @@ function runTests(config: Config, runningState: RunningState): boolean {
         runningState.lastRunOutput = result.toString();
 
         // write the output to the test output file
-        logger.debug('Writing test output to file: ', testOutputPath);
+        logger.debug(`Writing test output to file: ${testOutputPath}`);
         fs.writeFileSync(testOutputPath, result.toString());
 
         appendXmlTestResults(config, runningState);
 
-        logger.debug('Compilation and tests passed successfully');
+        console.log('Compilation and tests passed successfully');
         runningState.buildState.compiledSuccessfully = true;
         runningState.buildState.lastCompileTime = new Date();
         runningState.testResults.lastRunTime = new Date();
@@ -50,7 +50,7 @@ function runTests(config: Config, runningState: RunningState): boolean {
 
         return runningState.testResults.testsPassed;
     } catch (error: any) {
-        console.log('Compilation and tests failed : ');
+        console.log('Compilation and tests failed');
         const stdout = error.stdout ? error.stdout.toString() : '';
         const stderr = error.stderr ? error.stderr.toString() : '';
         logger.debug('stdout: ', stdout);
@@ -77,8 +77,6 @@ function appendXmlTestResults(config: Config, runningState: RunningState): void 
 
     const parser = new xml2js.Parser();
 
-    console.log('Processing test results from directory: ', testResultsDir);
-
     if (fs.existsSync(testResultsDir)) {
         fs.readdirSync(testResultsDir).forEach(file => {
             if (file.endsWith('.xml')) {
@@ -96,7 +94,6 @@ function appendXmlTestResults(config: Config, runningState: RunningState): void 
                             const status = failure ? 'FAILED' : error ? 'ERROR' : 'PASSED';
                             const message = failure || error || 'Test passed successfully.';
                             const output = `Test: ${className}.${testName} - ${status}\n${message}\n\n`;
-                            console.log('Appending test output to file: ', testOutputPath);
                             fs.appendFileSync(testOutputPath, output);
 
                             // Update RunningState

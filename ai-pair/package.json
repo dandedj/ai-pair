@@ -11,13 +11,13 @@
     "ai-pair": "file:../ai-pair",
     "axios": "^1.7.2",
     "chokidar": "^3.5.3",
+    "openai": "^4.73.0",
     "readline-sync": "^1.4.10",
     "winston": "^3.10.0",
-    "xml2js": "^0.6.2",
-    "openai": "^4.73.0"
+    "xml2js": "^0.6.2"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.14.1",
+    "@anthropic-ai/sdk": "^0.32.1",
     "@google/generative-ai": "^0.3.0"
   },
   "engines": {

@@ -4,8 +4,6 @@ import fs from 'fs';
 import { Config, logger } from 'ai-pair';
 
 function loadCommandLineConfig(): Config {
-    // show the received arguments
-    console.log('Received arguments:', process.argv);
 
     const args = process.argv.slice(2);
     const parsedArgs = minimist(args, {
@@ -24,17 +22,15 @@ function loadCommandLineConfig(): Config {
             extension: '.java', 
             testDir: 'src/test/java', 
             tmpDir: 'tmp',
-            logLevel: 'debug', 
+            logLevel: 'info', 
             numRetries: 3
         }
     });
 
-    // validate that all required arguments are present
     if (!parsedArgs.projectRoot) {
         throw new Error('Project root is required');
     }
 
-    // move the parsedArgs to a Config object
     const config = new Config({
         model: parsedArgs.model,
         projectRoot: parsedArgs.projectRoot,
@@ -45,9 +41,6 @@ function loadCommandLineConfig(): Config {
     });
 
     const configFilePath = path.join(process.cwd(), 'ai-pair-config.json');
-
-    // print the config file path
-    console.log('Config file path:', configFilePath);
 
     if (fs.existsSync(configFilePath)) {
         const fileConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));

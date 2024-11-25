@@ -84,14 +84,14 @@ class AIPair {
             console.log(`Performing code generation cycle ${this.runningState.generationCycles + 1} of ${this.config.numRetries}`);
             
             if (this.runningState.generationCycles === this.config.numRetries - 1) {
-                this.logger.info('Last retry, switching to o1-preview model');
+                console.log('Last retry, switching to o1-preview model');
                 this.config.model = "o1-preview";
                 this.client = this.clientFactory.createClient(this.config);
             }
             this.runningState.generationCycles++;
-            const testsPassed = await this.performCodeGenerationCycle(force);
-            if (testsPassed) {
-                return;
+            const success = await this.performCodeGenerationCycle(force);
+            if (success) {
+                break;
             }
         }
 
@@ -109,37 +109,17 @@ class AIPair {
             : '';
 
         if (!force) {
-            this.logger.debug('Performing tests to determine if changes are needed');
+            console.log('Performing tests to determine if changes are needed');
             runTests(this.config, this.runningState);
 
-            if (this.runningState.buildState.compiledSuccessfully === false) {
-                this.logger.info('Project compilation failed!');
-            } else if (this.runningState.testResults.testsPassed) {
-                this.logger.info('Project compiles and all tests passed! No changes needed.');
-                // Reset the generation cycle counter
-                this.runningState.generationCycles = 0;
+            if (this.runningState.buildState.compiledSuccessfully && this.runningState.testResults.testsPassed) {
+                console.log('Project compiles and all tests passed! No changes needed.');
                 return true;
             }
-        } else {
-            this.runningState.testResults = {
-                testsPassed: true,
-                totalTests: 0,
-                failedTests: [],
-                passedTests: [],
-                erroredTests: [],
-                lastRunTime: null,
-            };
-        }
 
-        if (
-            this.runningState.buildState.compiledSuccessfully &&
-            this.runningState.testResults.testsPassed &&
-            !force
-        ) {
-            this.logger.info('Project compiles and all tests passed! No changes needed.');
-            // Reset the generation cycle counter
-            this.runningState.generationCycles = 0;
-            return true;
+            if (!this.runningState.buildState.compiledSuccessfully) {
+                console.log('Project compilation failed!');
+            }
         }
 
         this.logger.debug('Collecting files for code generation');
@@ -176,12 +156,15 @@ class AIPair {
         this.logger.debug('Retrying tests after applying AI-generated code');
         runTests(this.config, this.runningState);
 
-        this.logger.info(`Tests passed: ${this.runningState.testResults.testsPassed}`);
+        this.logger.debug(`Tests passed: ${this.runningState.testResults.testsPassed}`);
 
         if (!this.runningState.testResults.testsPassed) {
-            this.logger.info(`Last run output: ${this.runningState.lastRunOutput}`);
+            this.logger.debug(`Last run output: ${this.runningState.lastRunOutput}`);
         }
-        this.logger.info(`Project compiled successfully: ${this.runningState.buildState.compiledSuccessfully}`);
+
+        this.logger.debug(
+            `Project compiled successfully: ${this.runningState.buildState.compiledSuccessfully}`
+        );
 
         return this.runningState.testResults.testsPassed;
     }
@@ -192,18 +175,13 @@ class AIPair {
         const maxAttempts = this.config.numRetries;
 
         for (let attempts = 1; attempts <= maxAttempts; attempts++) {
-            // if this is the last cycle before hitting the max retries, switch to the o1-preview model
-            if (attempts === maxAttempts) {
-                this.config.model = 'o1-preview';
-            }
-
             try {
                 generatedCode = await this.client.generateCode(prompt, systemPrompt);
                 break;
             } catch (error: any) {
                 this.logger.error(`Error generating code (attempt ${attempts}): ${error.message}`);
                 if (attempts < maxAttempts) {
-                    this.logger.info('Retrying code generation...');
+                    console.log('Retrying code generation...');
                     await delay(1000);
                 } else {
                     clearInterval(spinner);
@@ -216,10 +194,10 @@ class AIPair {
     }
 
     async runWithInteraction(): Promise<void> {
-        logger.info(`Starting AI Pair Runner with model: ${this.config.model}`);
+        console.log(`Starting AI Pair Runner with model: ${this.config.model}`);
 
         if (!this.runningState) {
-            console.log('RunningState is not initialized, initializing...');
+            this.logger.debug('RunningState is not initialized, initializing...');
             this.runningState = new RunningState();
         }
 
@@ -237,11 +215,11 @@ class AIPair {
 
             switch (action.toLowerCase()) {
                 case 'c':
-                    logger.info('Forcing code generation...');
+                    logger.debug('Forcing code generation...');
                     await this.performCodeGenerationCyclesWithRetries(true);
                     break;
                 case 'w':
-                    logger.info('Starting to watch for file changes...');
+                    logger.debug('Starting to watch for file changes...');
                     await this.watchForChanges();
                     break;
                 case 'h':
@@ -251,7 +229,7 @@ class AIPair {
                     break;
                 case 'x':
                 case 'e':
-                    logger.info('Exiting AI Pair Runner.');
+                    console.log('Exiting AI Pair Runner.');
                     exit = true;
                     break;
                 default:
@@ -261,23 +239,24 @@ class AIPair {
     }
 
     async watchForChanges(): Promise<void> {
-        this.logger.info('Watching for file changes...');
+        console.log('Watching for file changes...');
         return new Promise((resolve) => {
             const srcDirPath = path.resolve(this.config.srcDir);
             const testDirPath = path.resolve(this.config.testDir);
 
-            this.logger.info(`Source directory being watched: ${srcDirPath}`);
-            this.logger.info(`Test directory being watched: ${testDirPath}`);
+            this.logger.debug(`Source directory being watched: ${srcDirPath}`);
+            this.logger.debug(`Test directory being watched: ${testDirPath}`);
 
             this.runningState.generationCycles = 0;
             this.runningState.resetCycleState();
 
             const watcher = chokidar.watch([srcDirPath, testDirPath], {
                 persistent: true,
+                ignoreInitial: true,
             });
 
             watcher.on('ready', () => {
-                this.logger.info('Initial scan complete. Ready for changes.');
+                this.logger.debug('Initial scan complete. Ready for changes.');
                 const watchedPaths = watcher.getWatched();
                 for (const dir in watchedPaths) {
                     watchedPaths[dir].forEach((file) => {
@@ -287,17 +266,17 @@ class AIPair {
             });
 
             watcher.on('change', async (filePath) => {
-                this.logger.info(`File changed: ${filePath}`);
+                this.logger.debug(`File changed: ${filePath}`);
                 await this.performCodeGenerationCyclesWithRetries();
             });
 
             watcher.on('add', async (filePath) => {
-                this.logger.info(`File added: ${filePath}`);
+                this.logger.debug(`File added: ${filePath}`);
                 await this.performCodeGenerationCyclesWithRetries();
             });
 
             watcher.on('unlink', async (filePath) => {
-                this.logger.info(`File removed: ${filePath}`);
+                this.logger.debug(`File removed: ${filePath}`);
                 await this.performCodeGenerationCyclesWithRetries();
             });
 

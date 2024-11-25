@@ -20,6 +20,7 @@ interface FileSection {
  */
 function parseAndApplyGeneratedCode(config: Config, runningState: RunningState, generatedCode: string): CodeChangeSummary {
     logger.debug(`Parsing and applying generated code.`);
+    console.log("\n");
 
     const fileSections = splitIntoFileSections(generatedCode);
     let filesChanged = 0;
@@ -55,7 +56,7 @@ function parseAndApplyGeneratedCode(config: Config, runningState: RunningState, 
 
         fs.writeFileSync(fullPath, code, 'utf-8');
         meaningfulChanges++;
-        logger.info(`Applied changes to file: ${fullPath}`);
+        console.log(`Applied changes to file: ${fullPath}`);
     }
 
     const codeChangeSummary: CodeChangeSummary = {
@@ -67,7 +68,7 @@ function parseAndApplyGeneratedCode(config: Config, runningState: RunningState, 
     };
 
     runningState.codeChanges = codeChangeSummary;
-    logger.info(`Summary: ${filesChanged} source files changed, ${filesAdded} files added, ${meaningfulChanges} meaningful changes.`);
+    console.log(`Summary: ${filesChanged} source files changed, ${filesAdded} files added, ${meaningfulChanges} meaningful changes.`);
 
     return codeChangeSummary;
 }

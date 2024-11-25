@@ -7,19 +7,14 @@
     "ai-pair": "./src/AIPair.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.3.0",
     "ai-pair": "^1.0.0",
-    "chokidar": "^3.5.3",
-    "dotenv": "^16.0.0",
-    "minimist": "^1.2.8",
-    "openai": "^4.73.0",
-    "readline-sync": "^1.4.10"
+    "chokidar": "^4.0.1",
+    "dotenv": "^16.4.5",
+    "readline-sync": "^1.4.10",
+    "typescript": "^5.7.2"
   },
   "scripts": {
     "build": "tsc",
     "start": "node dist/ai-pair-cli.js"
-  },
-  "devDependencies": {
-    "@types/minimist": "^1.2.5"
   }
 }

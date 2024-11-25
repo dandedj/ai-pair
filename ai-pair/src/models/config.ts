@@ -32,7 +32,6 @@ class Config {
     noIssuePromptTemplate: string;
 
     constructor(configData: ConfigData) {
-        console.log('Config data: ', configData.anthropicApiKey);
         this.model = configData.model;
         this.projectRoot = path.resolve(configData.projectRoot);
         this.extension = configData.extension || '.java';
@@ -45,7 +44,6 @@ class Config {
             gemini: configData.geminiApiKey || process.env.GEMINI_API_KEY || '',
         };
 
-        console.log('API keys: ', this.apiKeys);
         if (!(this.apiKeys.anthropic || this.apiKeys.openai || this.apiKeys.gemini)) {
             throw new Error("API keys are not provided");
         }

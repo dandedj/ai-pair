@@ -20,7 +20,6 @@ configureLogger({ logDirectory: configData.tmpDir, logLevel: configData.logLevel
 
 (async () => {
   try {
-    // Create Config object (will throw errors if validations fail)
     const config = new Config(configData);
 
     const runningState = new RunningState();
