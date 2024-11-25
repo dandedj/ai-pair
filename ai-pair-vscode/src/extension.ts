@@ -28,6 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const runner = new AIPair(config, runningState);
 
     console.log('Starting logger with level: ', config.logLevel, 'and directory: ', config.tmpDir); 
+    
     const loggerOptions: LoggerOptions = {
         logLevel: config.logLevel,
         logDirectory: config.tmpDir,

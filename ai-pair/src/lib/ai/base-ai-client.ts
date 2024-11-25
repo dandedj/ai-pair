@@ -33,7 +33,9 @@ abstract class BaseAIClient {
     logRequest(prompt: string): string {
         const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
         const requestLogFilePath = path.join(this.tmpDir, `request_${timestamp}.txt`);
-        fs.writeFileSync(requestLogFilePath, prompt);
+        let logString = `Model: ${this.model}\n${prompt}\n`;
+        logString = logString + prompt;
+        fs.writeFileSync(requestLogFilePath, logString);
         return timestamp;
     }
 
