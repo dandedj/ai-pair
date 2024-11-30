@@ -3,7 +3,7 @@ package org.example;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
-
+import com.example.Barry;
 public class OpenRTBTest {
 
     private OpenRTB openRTB;
@@ -76,7 +76,12 @@ public class OpenRTBTest {
         assertEquals(300, openRTB.getWidth());
         assertEquals(250, openRTB.getHeight());
         assertEquals(300*250, openRTB.getArea());
-
-
+        assertEquals(0, openRTB.getPos());
+        assertEquals("Windows", openRTB.getOs());
+        assertEquals("www.example.com", openRTB.getDomain());
+        
+        Barry barry = new Barry();
+        assertEquals("Barry", barry.getName());
     }
+    
 }

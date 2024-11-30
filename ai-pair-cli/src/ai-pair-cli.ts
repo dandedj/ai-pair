@@ -21,7 +21,7 @@ configureLogger({ logDirectory: configData.tmpDir, logLevel: configData.logLevel
 (async () => {
   try {
     const config = new Config(configData);
-
+    config.loadPrompts();
     const runningState = new RunningState();
 
     // Clear temporary directories

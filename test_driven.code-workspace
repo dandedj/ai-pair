@@ -5,6 +5,10 @@
       "path": "ai-pair-vscode"
     },
     {
+      "name": "ai-pair-extension",
+      "path": "ai-pair-extension"
+    },
+    {
       "name": "ai-pair",
       "path": "ai-pair"
     },
@@ -16,6 +20,15 @@
       "name": "sample_java_gradle_project",
       "path": "sample_java_gradle_project"
     },
+    {
+      "path": ".",
+      "files.exclude": {
+        "ai-pair/**/*.*": true,
+        "**": true, // Exclude everything by default
+        "!package.json": true,
+        "!README.md": true // Include specific files
+      }
+    }
   ],
   "settings": {}
 } 

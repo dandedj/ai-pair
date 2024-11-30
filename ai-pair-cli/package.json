@@ -2,19 +2,26 @@
   "name": "ai-pair-cli",
   "version": "1.0.0",
   "description": "Command Line Interface for AI Pair Programming",
-  "main": "src/AIPair.js",
+  "main": "dist/ai-pair-cli.js",
   "bin": {
-    "ai-pair": "./src/AIPair.js"
+    "ai-pair": "./dist/ai-pair-cli.js"
   },
   "dependencies": {
-    "ai-pair": "^1.0.0",
+    "ai-pair": "file:../ai-pair",
     "chokidar": "^4.0.1",
     "dotenv": "^16.4.5",
+    "minimist": "^1.2.5",
     "readline-sync": "^1.4.10",
     "typescript": "^5.7.2"
   },
   "scripts": {
     "build": "tsc",
     "start": "node dist/ai-pair-cli.js"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/minimist": "^1.2.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5"
   }
 }

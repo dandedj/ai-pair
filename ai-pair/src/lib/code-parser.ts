@@ -5,7 +5,6 @@ import { logger } from './logger';
 import { Config } from '../models/config';
 import { RunningState, CodeChangeSummary } from '../models/running-state';
 
-
 interface FileSection {
     filePath: string;
     code: string;
@@ -145,4 +144,4 @@ function isTestFile(filePath: string): boolean {
     return filePath.includes('/test/') || filePath.includes('\\test\\');
 }
 
-export { parseAndApplyGeneratedCode }; 
+export { parseAndApplyGeneratedCode, splitIntoFileSections, extractCodeFromMarkdown }; 

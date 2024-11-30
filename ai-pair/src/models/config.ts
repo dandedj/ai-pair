@@ -14,6 +14,9 @@ interface ConfigData {
     tmpDir: string;
     promptsPath?: string;
     numRetries?: number;
+    systemPrompt?: string;
+    promptTemplate?: string;
+    noIssuePromptTemplate?: string;
 }
 
 class Config {
@@ -70,6 +73,12 @@ class Config {
             throw new Error(`Prompts directory not found at path: ${this.promptsPath}`);
         }
 
+        this.systemPrompt = '';
+        this.promptTemplate = '';
+        this.noIssuePromptTemplate = '';
+    }
+
+    loadPrompts(): void {
         this.systemPrompt = this.loadPromptFile('system_prompt.txt');
         this.promptTemplate = this.loadPromptFile('prompt_template.txt');
         this.noIssuePromptTemplate = this.loadPromptFile('no_issue_prompt_template.txt');

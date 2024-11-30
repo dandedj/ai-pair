@@ -1,7 +1,7 @@
 import minimist from 'minimist';
 import path from 'path';
 import fs from 'fs';
-import { Config, logger } from 'ai-pair';
+import { Config} from 'ai-pair';
 
 function loadCommandLineConfig(): Config {
 
