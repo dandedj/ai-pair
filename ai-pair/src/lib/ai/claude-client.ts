@@ -40,7 +40,6 @@ class ClaudeClient extends BaseAIClient {
 
             const generatedCode = response.data.completion.trim();
             this.logResponse(generatedCode, timestamp);
-
             this.updateTokenUsage(response.data);
 
             return generatedCode;
@@ -58,4 +57,4 @@ class ClaudeClient extends BaseAIClient {
     }
 }
 
-export default ClaudeClient; 
+export { ClaudeClient }; 

@@ -1,6 +1,6 @@
-import ChatGPTClient from './chatgpt-client';
-import ClaudeClient from './claude-client';
-import GeminiClient from './gemini-client';
+import { ChatGPTClient } from './chatgpt-client';
+import { ClaudeClient } from './claude-client';
+import { GeminiClient } from './gemini-client';
 import { logger } from '../logger';
 
 interface Config {

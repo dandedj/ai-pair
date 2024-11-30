@@ -37,8 +37,6 @@ class GeminiClient extends BaseAIClient {
             throw error;
         }
     }
-
-    // ... any additional methods if needed ...
 }
 
-export default GeminiClient; 
+export { GeminiClient }; 

@@ -14,6 +14,9 @@ interface ConfigData {
     tmpDir: string;
     promptsPath?: string;
     numRetries?: number;
+    systemPrompt?: string;
+    promptTemplate?: string;
+    noIssuePromptTemplate?: string;
 }
 
 class Config {
@@ -32,7 +35,6 @@ class Config {
     noIssuePromptTemplate: string;
 
     constructor(configData: ConfigData) {
-        console.log('Config data: ', configData.anthropicApiKey);
         this.model = configData.model;
         this.projectRoot = path.resolve(configData.projectRoot);
         this.extension = configData.extension || '.java';
@@ -45,7 +47,6 @@ class Config {
             gemini: configData.geminiApiKey || process.env.GEMINI_API_KEY || '',
         };
 
-        console.log('API keys: ', this.apiKeys);
         if (!(this.apiKeys.anthropic || this.apiKeys.openai || this.apiKeys.gemini)) {
             throw new Error("API keys are not provided");
         }
@@ -72,6 +73,12 @@ class Config {
             throw new Error(`Prompts directory not found at path: ${this.promptsPath}`);
         }
 
+        this.systemPrompt = '';
+        this.promptTemplate = '';
+        this.noIssuePromptTemplate = '';
+    }
+
+    loadPrompts(): void {
         this.systemPrompt = this.loadPromptFile('system_prompt.txt');
         this.promptTemplate = this.loadPromptFile('prompt_template.txt');
         this.noIssuePromptTemplate = this.loadPromptFile('no_issue_prompt_template.txt');

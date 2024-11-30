@@ -3,4 +3,4 @@
 npx tsc
 
 # Run the AI Pair CLI program
-node ./dist/ai-pair-cli.js "$@"
+node --no-warnings ./dist/ai-pair-cli.js "$@"

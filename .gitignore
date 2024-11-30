@@ -77,3 +77,4 @@ ai_pair/tmp
 *.rej
 
 ai-pair-config.json
+node_modules

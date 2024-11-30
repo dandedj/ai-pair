@@ -5,7 +5,6 @@ import { logger } from './logger';
 import { Config } from '../models/config';
 import { RunningState, CodeChangeSummary } from '../models/running-state';
 
-
 interface FileSection {
     filePath: string;
     code: string;
@@ -18,8 +17,9 @@ interface FileSection {
  * @param runningState - The running state to update with code changes.
  * @returns Details about the changes made.
  */
-function parseAndApplyGeneratedCode(config: Config, generatedCode: string, runningState: RunningState): CodeChangeSummary {
+function parseAndApplyGeneratedCode(config: Config, runningState: RunningState, generatedCode: string): CodeChangeSummary {
     logger.debug(`Parsing and applying generated code.`);
+    console.log("\n");
 
     const fileSections = splitIntoFileSections(generatedCode);
     let filesChanged = 0;
@@ -55,7 +55,7 @@ function parseAndApplyGeneratedCode(config: Config, generatedCode: string, runni
 
         fs.writeFileSync(fullPath, code, 'utf-8');
         meaningfulChanges++;
-        logger.info(`Applied changes to file: ${fullPath}`);
+        console.log(`Applied changes to file: ${fullPath}`);
     }
 
     const codeChangeSummary: CodeChangeSummary = {
@@ -67,7 +67,7 @@ function parseAndApplyGeneratedCode(config: Config, generatedCode: string, runni
     };
 
     runningState.codeChanges = codeChangeSummary;
-    logger.info(`Summary: ${filesChanged} source files changed, ${filesAdded} files added, ${meaningfulChanges} meaningful changes.`);
+    console.log(`Summary: ${filesChanged} source files changed, ${filesAdded} files added, ${meaningfulChanges} meaningful changes.`);
 
     return codeChangeSummary;
 }
@@ -144,4 +144,4 @@ function isTestFile(filePath: string): boolean {
     return filePath.includes('/test/') || filePath.includes('\\test\\');
 }
 
-export { parseAndApplyGeneratedCode }; 
+export { parseAndApplyGeneratedCode, splitIntoFileSections, extractCodeFromMarkdown }; 

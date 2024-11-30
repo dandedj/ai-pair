@@ -17,6 +17,28 @@
 			"problemMatcher": [],
 			"label": "npm: start - ai-pair-cli",
 			"detail": "node dist/ai-pair-cli.js"
+		},
+		{
+			"type": "npm",
+			"script": "build everything",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "npm: build",
+			"detail": "npm run build:ai-pair && npm run build:ai-pair-cli && npm run build:ai-pair-vscode"
+		},
+		{
+			"type": "npm",
+			"script": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "npm: build",
+			"detail": "npm run build:ai-pair && npm run build:ai-pair-cli && npm run build:ai-pair-vscode && npm run build:ai-pair-extension"
 		}
 	]
 }

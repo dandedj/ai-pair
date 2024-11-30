@@ -20,6 +20,11 @@ interface BuildState {
     lastCompileTime: Date | null;
 }
 
+interface CodeFile {
+    path: string;
+    content: string;
+}
+
 class RunningState {
     accumulatedHints: string[];
     generationCycles: number;
@@ -116,4 +121,4 @@ class RunningState {
     }
 }
 
-export { RunningState, CodeChangeSummary };
+export { RunningState, CodeFile, CodeChangeSummary };

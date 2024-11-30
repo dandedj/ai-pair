@@ -63,12 +63,20 @@ function deleteRecursive(targetPath: string): void {
  * Clears a directory by deleting all its contents.
  * @param dir - The directory to clear.
  */
-function clearDirectory(dir: string): void {
-    logger.debug(`Clearing directory: ${dir}`);
-    if (fs.existsSync(dir)) {
-        fs.readdirSync(dir).forEach(file => {
-            const filePath = path.join(dir, file);
-            deleteRecursive(filePath);
+function clearDirectory(directoryPath: string) {
+    if (fs.existsSync(directoryPath)) {
+        fs.readdirSync(directoryPath).forEach((file) => {
+            const curPath = path.join(directoryPath, file);
+            try {
+                if (fs.lstatSync(curPath).isDirectory()) {
+                    clearDirectory(curPath);
+                    fs.rmdirSync(curPath);
+                } else {
+                    fs.unlinkSync(curPath);
+                }
+            } catch (error: any) {
+                console.error(`Error removing file or directory ${curPath}: ${error.message}`);
+            }
         });
     }
 }
