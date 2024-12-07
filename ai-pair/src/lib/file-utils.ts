@@ -1,108 +1,96 @@
 import fs from 'fs';
 import path from 'path';
 import { logger } from './logger';
+import { CodeFile } from '../types/running-state';
 
-interface FileContent {
-    path: string;
-    content: string;
+/**
+ * Clears a directory by removing and recreating it
+ */
+export function clearDirectory(dirPath: string): void {
+    if (fs.existsSync(dirPath)) {
+        fs.rmSync(dirPath, { recursive: true });
+    }
+    fs.mkdirSync(dirPath, { recursive: true });
 }
 
 /**
- * Recursively collects all files with a given extension in specified directories.
- * @param dirs - The directories to search.
- * @param extension - The file extension to filter by.
- * @returns The collected files.
+ * Collects all files with a specific extension from given directories
  */
-function collectFilesWithExtension(dirs: string[], extension: string): FileContent[] {
-    let files: FileContent[] = [];
-    dirs.forEach(dir => {
-        fs.readdirSync(dir).forEach(file => {
-            const fullPath = path.join(dir, file);
+export function collectFilesWithExtension(directories: string[], extension: string): CodeFile[] {
+    const files: CodeFile[] = [];
+    
+    for (const directory of directories) {
+        if (!fs.existsSync(directory)) {
+            logger.warn(`Directory not found: ${directory}`);
+            continue;
+        }
+
+        const items = fs.readdirSync(directory);
+        for (const item of items) {
+            const fullPath = path.join(directory, item);
             const stat = fs.statSync(fullPath);
+
             if (stat.isDirectory()) {
-                files = files.concat(collectFilesWithExtension([fullPath], extension));
-            } else if (file.endsWith(extension)) {
-                const content = fs.readFileSync(fullPath, 'utf-8');
-                files.push({ path: fullPath, content });
+                files.push(...collectFilesWithExtension([fullPath], extension));
+            } else if (item.endsWith(extension)) {
+                try {
+                    const content = fs.readFileSync(fullPath, 'utf-8');
+                    files.push({ path: fullPath, content });
+                } catch (error) {
+                    const err = error as Error;
+                    logger.error(`Error reading file ${fullPath}: ${err.message}`);
+                }
             }
-        });
-    });
+        }
+    }
+
     return files;
 }
 
 /**
- * Collects all files with a specified extension.
- * @param dirs - The directories to search.
- * @param extension - The file extension to filter by.
- * @returns The collected files.
+ * Checks if a file exists at the given path
  */
-function collectFiles(dirs: string[], extension: string): FileContent[] {
-    return collectFilesWithExtension(dirs, extension);
-}
-
-/**
- * Deletes a file or directory recursively.
- * @param targetPath - The path to the file or directory.
- */
-function deleteRecursive(targetPath: string): void {
-    if (fs.existsSync(targetPath)) {
-        const stats = fs.statSync(targetPath);
-        if (stats.isDirectory()) {
-            fs.readdirSync(targetPath).forEach(file => {
-                const filePath = path.join(targetPath, file);
-                deleteRecursive(filePath);
-            });
-            fs.rmdirSync(targetPath);
-        } else {
-            fs.unlinkSync(targetPath);
-        }
+export function fileExists(filePath: string): boolean {
+    try {
+        return fs.existsSync(filePath);
+    } catch (error) {
+        return false;
     }
 }
 
 /**
- * Clears a directory by deleting all its contents.
- * @param dir - The directory to clear.
+ * Checks if a file is a build configuration file
  */
-function clearDirectory(directoryPath: string) {
-    if (fs.existsSync(directoryPath)) {
-        fs.readdirSync(directoryPath).forEach((file) => {
-            const curPath = path.join(directoryPath, file);
-            try {
-                if (fs.lstatSync(curPath).isDirectory()) {
-                    clearDirectory(curPath);
-                    fs.rmdirSync(curPath);
-                } else {
-                    fs.unlinkSync(curPath);
-                }
-            } catch (error: any) {
-                console.error(`Error removing file or directory ${curPath}: ${error.message}`);
-            }
-        });
+export function isBuildFile(filePath: string): boolean {
+    const buildFiles = [
+        'build.gradle.kts'
+    ];
+    const fileName = path.basename(filePath);
+    return buildFiles.includes(fileName);
+}
+
+/**
+ * Checks if a file is in a test directory
+ */
+export function isTestFile(filePath: string): boolean {
+    const testDirs = ['test/', '__tests__/', 'spec/', '__mocks__/'];
+    return testDirs.some(dir => filePath.includes(dir));
+}
+
+/**
+ * Creates directory if it doesn't exist
+ */
+export function ensureDirectoryExists(filePath: string): void {
+    const directory = path.dirname(filePath);
+    if (!fs.existsSync(directory)) {
+        fs.mkdirSync(directory, { recursive: true });
     }
 }
 
 /**
- * Ensures that a directory exists; if not, creates it.
- * @param dir - The directory path.
+ * Safely writes content to a file, ensuring the directory exists
  */
-function ensureDirectoryExists(dir: string): void {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-}
-
-/**
- * Clears a file by truncating its contents.
- * @param filePath - The file to clear.
- */
-function clearFile(filePath: string): void {
-    logger.debug(`Clearing file: ${filePath}`);
-    fs.writeFileSync(filePath, '');
-}
-
-export {
-    collectFilesWithExtension,
-    clearDirectory,
-    ensureDirectoryExists,
-    clearFile
-}; 
+export function safeWriteFile(filePath: string, content: string): void {
+    ensureDirectoryExists(filePath);
+    fs.writeFileSync(filePath, content, 'utf-8');
+} 

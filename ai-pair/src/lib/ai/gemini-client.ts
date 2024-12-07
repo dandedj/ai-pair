@@ -1,41 +1,43 @@
 import BaseAIClient from './base-ai-client';
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
-import { logger } from '../logger';
+import { GoogleGenerativeAI, GenerativeModel, GenerateContentResult } from '@google/generative-ai';
 
 class GeminiClient extends BaseAIClient {
-    genAI: GoogleGenerativeAI;
-    modelInstance: GenerativeModel;
+    private genAI: GoogleGenerativeAI;
+    private modelInstance: GenerativeModel;
 
     constructor(apiKey: string, model: string, tmpDir: string) {
         super(apiKey, model, tmpDir);
         this.genAI = new GoogleGenerativeAI(this.apiKey);
+        this.modelInstance = this.genAI.getGenerativeModel({ model: this.model });
+    }
 
-        if (!this.model.includes('exp')) {
-            this.modelInstance = this.genAI.getGenerativeModel({ model: this.model });
-        } else {
-            this.modelInstance = this.genAI.getGenerativeModel({ model: this.model }, { apiVersion: 'v1beta' });
+    async generateResponse(prompt: string, systemPrompt: string): Promise<string> {
+        const timestamp = this.logRequest(prompt);
+
+        try {
+            const fullPrompt = `${systemPrompt}\n\n${prompt}`.trim();
+            const result = await this.modelInstance.generateContent({
+                contents: [{ role: 'user', parts: [{ text: fullPrompt }] }]
+            });
+
+            const generatedCode = result.response.text();
+            this.logResponse(generatedCode, timestamp);
+            
+            // Estimate token usage since Gemini doesn't provide it directly
+            const promptTokens = this.estimateTokens(fullPrompt);
+            const completionTokens = this.estimateTokens(generatedCode);
+            this.logTokenUsage(promptTokens, completionTokens);
+
+            return generatedCode;
+        } catch (error) {
+            const err = error as Error;
+            this.logger.error(`Error while generating code with Gemini: ${err.message}`);
+            throw err;
         }
     }
 
-    async generateCode(prompt: string, systemPrompt: string = ''): Promise<string> {
-        try {
-            const timestamp = this.logRequest(prompt);
-
-            const fullPrompt = `${systemPrompt}\n\n${prompt}`.trim();
-
-            const result = await this.modelInstance.generateContent(fullPrompt);
-            const generatedCode = result.response.text();
-
-            this.logResponse(generatedCode, timestamp);
-
-            // Update token usage if the API provides this information
-            // this.updateTokenUsage(result);
-
-            return generatedCode;
-        } catch (error: any) {
-            logger.error('Error while generating code with Gemini:', error);
-            throw error;
-        }
+    protected async processResponse(response: GenerateContentResult): Promise<string> {
+        return response.response.text();
     }
 }
 

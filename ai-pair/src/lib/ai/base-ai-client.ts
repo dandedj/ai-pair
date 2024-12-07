@@ -8,16 +8,25 @@ interface TokenUsage {
     totalTokens: number;
 }
 
+interface ApiResponseBase {
+    usage?: {
+        prompt_tokens: number;
+        completion_tokens: number;
+    };
+}
+
 abstract class BaseAIClient {
-    apiKey: string;
-    model: string;
-    tmpDir: string;
-    tokenUsage: TokenUsage;
+    protected apiKey: string;
+    protected model: string;
+    protected tmpDir: string;
+    protected tokenUsage: TokenUsage;
+    protected logger: typeof logger;
 
     constructor(apiKey: string, model: string, tmpDir: string) {
         this.apiKey = apiKey;
         this.model = model;
         this.tmpDir = tmpDir;
+        this.logger = logger;
         this.tokenUsage = {
             promptTokens: 0,
             completionTokens: 0,
@@ -30,34 +39,44 @@ abstract class BaseAIClient {
         return Math.ceil(text.length / 4);
     }
 
-    logRequest(prompt: string): string {
-        const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
-        const requestLogFilePath = path.join(this.tmpDir, `request_${timestamp}.txt`);
-        let logString = `Model: ${this.model}\n${prompt}\n`;
-        logString = logString + prompt;
-        fs.writeFileSync(requestLogFilePath, logString);
-        return timestamp;
+    logRequest(prompt: string, logDir: string): string {
+        const requestLogPath = path.join(logDir, 'request.log');
+        const logString = `Model: ${this.model}\n${prompt}\n`;
+        fs.writeFileSync(requestLogPath, logString);
+        return requestLogPath;
     }
 
-    logResponse(generatedCode: string, timestamp: string): void {
-        const responseLogFilePath = path.join(this.tmpDir, `response_${timestamp}.txt`);
-        fs.writeFileSync(responseLogFilePath, generatedCode);
+    logResponse(response: string, logDir: string): string {
+        const responseLogPath = path.join(logDir, 'response.log');
+        fs.writeFileSync(responseLogPath, response);
+        return responseLogPath;
     }
 
     logTokenUsage(promptTokens: number, completionTokens: number): void {
         this.tokenUsage.promptTokens += promptTokens;
         this.tokenUsage.completionTokens += completionTokens;
         this.tokenUsage.totalTokens += (promptTokens + completionTokens);
-        logger.debug(`Token usage - Prompt: ${promptTokens}, Completion: ${completionTokens}, Total: ${this.tokenUsage.totalTokens}`);
+        this.logger.debug(`Token usage - Prompt: ${promptTokens}, Completion: ${completionTokens}, Total: ${this.tokenUsage.totalTokens}`);
     }
 
-    updateTokenUsage(apiResponse: any): void {
-        // Override in child classes if the API returns token usage details
+    updateTokenUsage(apiResponse: ApiResponseBase): void {
+        if (apiResponse.usage) {
+            const { prompt_tokens, completion_tokens } = apiResponse.usage;
+            this.logTokenUsage(prompt_tokens, completion_tokens);
+        }
     }
 
     getTokenUsage(): TokenUsage {
         return this.tokenUsage;
     }
+
+    protected async handleError(error: Error): Promise<void> {
+        this.logger.error(`Error in AI client: ${error.message}`);
+        throw error;
+    }
+
+    public abstract generateResponse(prompt: string, systemPrompt: string, logDir: string): Promise<string>;
+    protected abstract processResponse(response: unknown): Promise<string>;
 }
 
 export default BaseAIClient; 

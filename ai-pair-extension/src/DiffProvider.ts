@@ -1,38 +1,29 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 
 export class DiffProvider {
     /**
      * Shows a diff between two pieces of content in the editor
      */
     public async showDiff(
-        originalContent: string,
-        modifiedContent: string,
-        fileName: string,
-        title: string = 'AI Pair Diff'
+        originalFile: string,
+        modifiedFile: string,
+        title: string
     ): Promise<void> {
-        // Create URIs for the diff editor
-        const originalUri = this.createTempFileUri(fileName, 'original');
-        const modifiedUri = this.createTempFileUri(fileName, 'modified');
+        try {
+            const originalUri = vscode.Uri.file(originalFile);
+            const modifiedUri = vscode.Uri.file(modifiedFile);
 
-        // Create virtual documents for both versions
-        const originalDoc = await this.createVirtualDocument(originalUri, originalContent);
-        const modifiedDoc = await this.createVirtualDocument(modifiedUri, modifiedContent);
-
-        // Show the diff editor
-        await vscode.commands.executeCommand('vscode.diff',
-            originalUri,
-            modifiedUri,
-            `${title} - ${path.basename(fileName)}`,
-            {
-                preview: true,
-                preserveFocus: true
-            }
-        );
-
-        // Store the documents to prevent garbage collection
-        this._documents.set(originalUri.toString(), originalDoc);
-        this._documents.set(modifiedUri.toString(), modifiedDoc);
+            await vscode.commands.executeCommand('vscode.diff',
+                originalUri,
+                modifiedUri,
+                title
+            );
+        } catch (error) {
+            console.error('Error showing diff:', error);
+            vscode.window.showErrorMessage(`Failed to show diff: ${error}`);
+        }
     }
 
     private _documents = new Map<string, vscode.TextDocument>();
@@ -73,17 +64,29 @@ export class DiffProvider {
      */
     public async showProposedChanges(
         filePath: string,
-        originalContent: string,
-        proposedChanges: string,
+        config: { tmpDir: string },
         description: string = 'AI Proposed Changes'
     ): Promise<void> {
-        const fileName = path.basename(filePath);
-        await this.showDiff(
-            originalContent,
-            proposedChanges,
-            fileName,
-            description
-        );
+        try {
+            // Get the most recent archive directory
+            const archiveDir = path.join(config.tmpDir, 'archive');
+            const timestamps = await fs.promises.readdir(archiveDir);
+            const latestTimestamp = timestamps.sort().reverse()[0];
+            const latestDir = path.join(archiveDir, latestTimestamp);
+
+            // Get the original and modified file paths
+            const originalPath = path.join(latestDir, `${filePath}.orig`);
+            const modifiedPath = path.join(latestDir, filePath);
+
+            await this.showDiff(
+                originalPath,
+                modifiedPath,
+                description
+            );
+        } catch (error) {
+            console.error('Error showing proposed changes:', error);
+            vscode.window.showErrorMessage(`Failed to show diff: ${error}`);
+        }
     }
 
     /**
@@ -92,16 +95,14 @@ export class DiffProvider {
     public async previewChanges(
         changes: Array<{
             filePath: string;
-            originalContent: string;
-            modifiedContent: string;
-        }>
+        }>,
+        config: { tmpDir: string }
     ): Promise<void> {
         // For multiple files, show them in sequence
         for (const change of changes) {
             await this.showProposedChanges(
                 change.filePath,
-                change.originalContent,
-                change.modifiedContent
+                config
             );
         }
     }
@@ -116,6 +117,17 @@ export class DiffProvider {
         try {
             const uri = vscode.Uri.file(filePath);
             const edit = new vscode.WorkspaceEdit();
+            
+            // Ensure parent directories exist
+            const parentDir = path.dirname(filePath);
+            if (!fs.existsSync(parentDir)) {
+                fs.mkdirSync(parentDir, { recursive: true });
+            }
+
+            // Create the file if it doesn't exist
+            if (!fs.existsSync(filePath)) {
+                fs.writeFileSync(filePath, '');
+            }
             
             // Read the current content
             const document = await vscode.workspace.openTextDocument(uri);

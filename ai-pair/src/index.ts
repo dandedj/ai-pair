@@ -1,14 +1,15 @@
-import { AIPair, CodeFile } from './ai-pair';
+import { AIPair, CodeFile, GenerationCycleDetails } from './ai-pair';
+import AIClientFactory from './lib/ai/ai-client-factory';
 import { ChatGPTClient } from './lib/ai/chatgpt-client';
 import { ClaudeClient } from './lib/ai/claude-client';
 import { GeminiClient } from './lib/ai/gemini-client';
 import { parseAndApplyGeneratedCode } from './lib/code-parser';
+import { loadPrompts } from './lib/ai/prompt-utils';
 import { clearDirectory, collectFilesWithExtension } from './lib/file-utils';
-import { configureLogger, logger, LoggerOptions } from './lib/logger';
-import { Config } from './models/config';
-import { RunningState } from './models/running-state';
+import { Config } from './types/config';
+import { RunningState, Status, TestResults, BuildState } from './types/running-state';
 
 export {
-    AIPair, ChatGPTClient,
-    ClaudeClient, clearDirectory, CodeFile, collectFilesWithExtension, Config, configureLogger, GeminiClient, logger, LoggerOptions, parseAndApplyGeneratedCode, RunningState
+    AIPair, AIClientFactory, ChatGPTClient, loadPrompts, TestResults, BuildState, GenerationCycleDetails,
+    ClaudeClient, clearDirectory, CodeFile, collectFilesWithExtension, Config, GeminiClient, parseAndApplyGeneratedCode, RunningState, Status
 };

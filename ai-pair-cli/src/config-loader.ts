@@ -1,10 +1,22 @@
 import minimist from 'minimist';
 import path from 'path';
-import fs from 'fs';
-import { Config} from 'ai-pair';
+import { Config } from 'ai-pair';
+import pino from 'pino';
 
-function loadCommandLineConfig(): Config {
+const logger = pino({
+    level: 'debug',
+    transport: {
+        target: 'pino-pretty',
+        options: {
+            colorize: true,
+            messageFormat: '[{time}] {level}: {msg}',
+            ignore: 'pid,hostname,time',
+            translateTime: 'HH:MM:ss'
+        }
+    }
+});
 
+async function loadCommandLineConfig(): Promise<Config> {
     const args = process.argv.slice(2);
     const parsedArgs = minimist(args, {
         alias: { 
@@ -28,6 +40,7 @@ function loadCommandLineConfig(): Config {
     });
 
     if (!parsedArgs.projectRoot) {
+        logger.error('Project root is required');
         throw new Error('Project root is required');
     }
 
@@ -35,19 +48,14 @@ function loadCommandLineConfig(): Config {
         model: parsedArgs.model,
         projectRoot: parsedArgs.projectRoot,
         extension: parsedArgs.extension,
-        testDir: parsedArgs.testDir,
+        srcDir: path.join(parsedArgs.projectRoot, 'src/main/java'),
+        testDir: path.join(parsedArgs.projectRoot, parsedArgs.testDir),
+        promptsPath: path.join(__dirname, '../prompts'),
         tmpDir: parsedArgs.tmpDir,
         logLevel: parsedArgs.logLevel
     });
 
-    const configFilePath = path.join(process.cwd(), 'ai-pair-config.json');
-
-    if (fs.existsSync(configFilePath)) {
-        const fileConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
-        return { ...parsedArgs, ...fileConfig };
-    }
-
-    return config
+    return config;
 }
 
 export { loadCommandLineConfig }; 

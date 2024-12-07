@@ -50,5 +50,21 @@ export const vscodeStyles = {
         flex: '0 0 80px',
         color: 'var(--vscode-foreground)',
         fontSize: '13px'
+    },
+
+    label: {
+        color: 'var(--vscode-foreground)',
+        fontSize: '13px',
+        marginBottom: '4px',
+        display: 'block'
+    },
+
+    button: {
+        backgroundColor: 'var(--vscode-button-background)',
+        color: 'var(--vscode-button-foreground)',
+        border: 'none',
+        padding: '4px 12px',
+        borderRadius: '2px',
+        cursor: 'pointer'
     }
 }; 

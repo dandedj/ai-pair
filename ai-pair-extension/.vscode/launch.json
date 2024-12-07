@@ -13,9 +13,27 @@
 				"--extensionDevelopmentPath=${workspaceFolder}"
 			],
 			"outFiles": [
-				"${workspaceFolder}/dist/**/*.js"
+				"${workspaceFolder}/dist/**/*.js",
+				"${workspaceFolder}/../ai-pair/dist/**/*.js"
 			],
-			"preLaunchTask": "npm: watch"
+			"preLaunchTask": "npm: watch",
+			"sourceMaps": true,
+			"resolveSourceMapLocations": [
+				"${workspaceFolder}/**",
+				"${workspaceFolder}/../ai-pair/**",
+				"!**/node_modules/**"
+			],
+			"smartStep": true,
+			"skipFiles": [
+				"<node_internals>/**",
+				"**/node_modules/**"
+			],
+			"sourceMapPathOverrides": {
+				"webpack:///./src/*": "${workspaceFolder}/src/*",
+				"webpack:///src/*": "${workspaceFolder}/src/*",
+				"webpack:///*": "*",
+				"webpack:///./~/*": "${workspaceFolder}/node_modules/*"
+			}
 		}
 	]
 }

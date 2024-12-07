@@ -13,13 +13,19 @@
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
 		"jsx": "react",
-		"outDir": "dist"
+		"outDir": "dist",
+		"moduleResolution": "node",
+		"baseUrl": ".",
+		"paths": {
+			"ai-pair": ["../ai-pair/dist"]
+		}
 	},
 	"include": [
 		"src/**/*"
 	],
 	"exclude": [
 		"node_modules",
-		".vscode-test"
+		".vscode-test",
+		"dist"
 	]
 }

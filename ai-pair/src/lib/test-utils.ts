@@ -1,178 +1,297 @@
-import fs from 'fs';
-import path from 'path';
-import xml2js from 'xml2js';
-import { execSync } from 'child_process';
-import { ensureDirectoryExists, clearFile } from './file-utils';
+import { spawn } from 'child_process';
+import { Config } from '../types/config';
+import { RunningState, TestResults, CodeFile } from '../types/running-state';
 import { logger } from './logger';
-import { Config } from '../models/config';
-import { RunningState } from '../models/running-state';
-import { CodeFile } from '../ai-pair';
-import { collectFilesWithExtension } from './file-utils';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as xml2js from 'xml2js';
 
-function runInitialTests(config: Config, runningState: RunningState, force: boolean): boolean {
-    logger.debug('Running initial tests');
-    const testsPassed = runTests(config, runningState);
-    if (!force && testsPassed) {
-        logger.info('Initial tests passed, no changes needed.');
+interface BuildCommand {
+    command: string;
+    args: string[];
+}
+
+function getBuildCommand(config: Config): BuildCommand {
+    switch (config.extension) {
+        case '.ts':
+        case '.js':
+            return {
+                command: 'npm',
+                args: ['run', 'build']
+            };
+        case '.java':
+            if (fs.existsSync(path.join(config.projectRoot, 'build.gradle.kts'))) {
+                return {
+                    command: process.platform === 'win32' ? 'gradlew.bat' : './gradlew',
+                    args: ['clean', 'build', '-x', 'test', '--stacktrace']
+                };
+            } else if (fs.existsSync(path.join(config.projectRoot, 'build.gradle'))) {
+                return {
+                    command: process.platform === 'win32' ? 'gradlew.bat' : './gradlew',
+                    args: ['clean', 'build', '-x', 'test', '--stacktrace']
+                };
+            } else {
+                return {
+                    command: 'mvn',
+                    args: ['compile']
+                };
+            }
+        default:
+            throw new Error(`Unsupported project type: ${config.extension}`);
     }
-    return testsPassed;
 }
 
-function runFinalTests(config: Config, runningState: RunningState): boolean {
-    logger.debug('Running final tests after code generation');
-    return runTests(config, runningState);
+function getTestCommand(config: Config): BuildCommand {
+    switch (config.extension) {
+        case '.ts':
+        case '.js':
+            return {
+                command: 'npm',
+                args: ['test']
+            };
+        case '.java':
+            if (fs.existsSync(path.join(config.projectRoot, 'build.gradle.kts')) || 
+                fs.existsSync(path.join(config.projectRoot, 'build.gradle'))) {
+                return {
+                    command: process.platform === 'win32' ? 'gradlew.bat' : './gradlew',
+                    args: ['test', '--stacktrace']
+                };
+            } else {
+                return {
+                    command: 'mvn',
+                    args: ['test']
+                };
+            }
+        default:
+            throw new Error(`Unsupported project type: ${config.extension}`);
+    }
 }
 
-function runTests(config: Config, runningState: RunningState): boolean {
-    ensureDirectoryExists(config.tmpDir);
-
-    const testOutputPath = path.join(config.tmpDir, 'test_output.txt');
-    clearFile(testOutputPath);
-
-    runningState.resetCycleState();
-
+export async function buildProject(config: Config, runningState: RunningState, isFinalBuild: boolean = false): Promise<boolean> {
     try {
-        logger.debug('Running tests with Gradle using command: gradle clean test');
-        const result = execSync('gradle clean test', { cwd: config.projectRoot });
-        runningState.lastRunOutput = result.toString();
+        const { command, args } = getBuildCommand(config);
+        let output = '';
 
-        // write the output to the test output file
-        logger.debug(`Writing test output to file: ${testOutputPath}`);
-        fs.writeFileSync(testOutputPath, result.toString());
+        const child = spawn(command, args, {
+            cwd: config.projectRoot,
+            stdio: ['pipe', 'pipe', 'pipe']
+        });
 
-        appendXmlTestResults(config, runningState);
+        child.stdout.on('data', (data: Buffer) => {
+            output += data.toString();
+        });
 
-        console.log('Compilation and tests passed successfully');
-        runningState.buildState.compiledSuccessfully = true;
-        runningState.buildState.lastCompileTime = new Date();
-        runningState.testResults.lastRunTime = new Date();
-        runningState.testResults.testsPassed = true;
+        child.stderr.on('data', (data: Buffer) => {
+            output += data.toString();
+        });
 
-        return runningState.testResults.testsPassed;
-    } catch (error: any) {
-        console.log('Compilation and tests failed');
-        const stdout = error.stdout ? error.stdout.toString() : '';
-        const stderr = error.stderr ? error.stderr.toString() : '';
-        logger.debug('stdout: ', stdout);
-        logger.debug('stderr: ', stderr);
-        fs.writeFileSync(testOutputPath, stdout + stderr);
-        runningState.lastRunOutput = stdout + stderr;
-        appendXmlTestResults(config, runningState);
+        const success = await new Promise<boolean>((resolve) => {
+            child.on('close', (code: number) => {
+                const cycleDir = path.join(config.tmpDir, `generationCycle${runningState.currentCycle?.cycleNumber || 0}`);
+                if (!fs.existsSync(cycleDir)) {
+                    fs.mkdirSync(cycleDir, { recursive: true });
+                }
+                const logFile = path.join(cycleDir, isFinalBuild ? 'final_build_result.log' : 'initial_build_result.log');
+                fs.writeFileSync(logFile, output);
 
-        // TODO: this needs to change depending on the project type
-        if (runningState.lastRunOutput.includes('Compilation failed')) {
-            logger.error('Compilation failed. Tests not run.');
-            runningState.buildState.compiledSuccessfully = false;
-        } else {
-            runningState.buildState.compiledSuccessfully = true;
+                const buildState = {
+                    compiledSuccessfully: code === 0,
+                    compilerOutput: output,
+                    compilerErrors: [],
+                    lastCompileTime: new Date(),
+                    compilationErrors: code === 0 ? [] : [output],
+                    logFile
+                };
+
+                if (runningState.currentCycle) {
+                    if (isFinalBuild) {
+                        runningState.currentCycle.finalBuildState = buildState;
+                    } else {
+                        runningState.currentCycle.initialBuildState = buildState;
+                    }
+                }
+                runningState.buildState = buildState;
+                resolve(code === 0);
+            });
+        });
+
+        return success;
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('Build failed: ' + errorMessage);
+        const buildState = {
+            compiledSuccessfully: false,
+            compilerOutput: errorMessage,
+            compilerErrors: [],
+            lastCompileTime: new Date(),
+            compilationErrors: [errorMessage],
+            logFile: ''
+        };
+
+        if (runningState.currentCycle) {
+            if (isFinalBuild) {
+                runningState.currentCycle.finalBuildState = buildState;
+            } else {
+                runningState.currentCycle.initialBuildState = buildState;
+            }
         }
+        runningState.buildState = buildState;
 
         return false;
     }
 }
 
-function appendXmlTestResults(config: Config, runningState: RunningState): void {
-    const testResultsDir = path.resolve(config.projectRoot, 'build/test-results/test');
-    const testOutputPath = path.join(config.tmpDir, 'test_output.txt');
+export async function runTests(config: Config, runningState: RunningState, isFinalResults: boolean = false): Promise<void> {
+    try {
+        const { command, args } = getTestCommand(config);
+        let output = '';
 
-    const parser = new xml2js.Parser();
+        const child = spawn(command, args, {
+            cwd: config.projectRoot,
+            stdio: ['pipe', 'pipe', 'pipe']
+        });
 
-    if (fs.existsSync(testResultsDir)) {
-        fs.readdirSync(testResultsDir).forEach(file => {
-            if (file.endsWith('.xml')) {
-                const filePath = path.join(testResultsDir, file);
-                const xmlContent = fs.readFileSync(filePath, 'utf-8');
-                parser.parseString(xmlContent, (err: any, result: any) => {
-                    if (err) {
-                        logger.error(`Error parsing XML file ${file}:`, err);
+        child.stdout.on('data', (data: Buffer) => {
+            output += data.toString();
+        });
+
+        child.stderr.on('data', (data: Buffer) => {
+            output += data.toString();
+        });
+
+        await new Promise<void>((resolve) => {
+            child.on('close', async () => {
+                // Save test output to log file
+                const cycleDir = path.join(config.tmpDir, `generationCycle${runningState.currentCycle?.cycleNumber || 0}`);
+                if (!fs.existsSync(cycleDir)) {
+                    fs.mkdirSync(cycleDir, { recursive: true });
+                }
+                const logFile = path.join(cycleDir, isFinalResults ? 'after-tests.log' : 'before-tests.log');
+                fs.writeFileSync(logFile, output);
+
+                // Process test results
+                const results = await processTestResults(config);
+                if (runningState.currentCycle) {
+                    if (isFinalResults) {
+                        runningState.currentCycle.finalTestResults = results;
                     } else {
-                        const testCases = result.testsuite.testcase || [];
-                        testCases.forEach((testCase: any) => {
-                            const { name: testName, classname: className } = testCase.$;
-                            const failure = testCase.failure ? testCase.failure[0]._ : null;
-                            const error = testCase.error ? testCase.error[0]._ : null;
-                            const status = failure ? 'FAILED' : error ? 'ERROR' : 'PASSED';
-                            const message = failure || error || 'Test passed successfully.';
-                            const output = `Test: ${className}.${testName} - ${status}\n${message}\n\n`;
-                            fs.appendFileSync(testOutputPath, output);
-
-                            // Update RunningState
-                            if (failure) {
-                                runningState.testResults.testsPassed = false;
-                                runningState.testResults.failedTests.push(`${className}.${testName}`);
-                            } else if (error) {
-                                runningState.testResults.testsPassed = false;
-                                runningState.testResults.erroredTests.push(`${className}.${testName}`);
-                            } else {
-                                runningState.testResults.passedTests.push(`${className}.${testName}`);
-                            }
-                        });
+                        runningState.currentCycle.initialTestResults = results;
                     }
-                });
+                }
+                runningState.testResults = results;
+                resolve();
+            });
+        });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('Tests failed: ' + errorMessage);
+        const failedResults = {
+            testsPassed: false,
+            passedTests: [],
+            failedTests: [],
+            erroredTests: [errorMessage],
+            lastRunTime: new Date()
+        };
+        if (runningState.currentCycle) {
+            if (isFinalResults) {
+                runningState.currentCycle.finalTestResults = failedResults;
+            } else {
+                runningState.currentCycle.initialTestResults = failedResults;
             }
-        });
+        }
+        runningState.testResults = failedResults;
     }
 }
 
-function getTestOutput(config: Config): string {
-    const testOutputPath = path.join(config.tmpDir, 'test_output.txt');
-    if (fs.existsSync(testOutputPath)) {
-        return fs.readFileSync(testOutputPath, 'utf-8');
+export async function buildAndRunTests(config: Config, runningState: RunningState): Promise<void> {
+    // First run the build
+    const buildSuccess = await buildProject(config, runningState, false);
+    if (!buildSuccess) {
+        logger.debug('Build failed, skipping tests');
+        return;
     }
-    return 'No test output available.';
+
+    // If build succeeds, run the tests
+    await runTests(config, runningState);
 }
 
-function extractClassNameFromTest(test: string): string {
-    let className = '';
+export function collectTestFiles(force: boolean, config: Config): CodeFile[] {
+    const testFiles: CodeFile[] = [];
 
-    if (test.includes('(')) {
-        const match = test.match(/\(([^)]+)\)/);
-        className = match ? match[1] : test;
-    } else {
-        className = test;
+    if (!fs.existsSync(config.testDir)) {
+        logger.warn(`Test directory not found: ${config.testDir}`);
+        return testFiles;
     }
 
-    const parts = className.split('.');
-    const lastPart = parts[parts.length - 1];
-    if (lastPart && lastPart[0] === lastPart[0].toLowerCase()) {
-        className = parts.slice(0, -1).join('.');
+    function readTestFiles(dir: string): void {
+        const items = fs.readdirSync(dir);
+        for (const item of items) {
+            const fullPath = path.join(dir, item);
+            const stat = fs.statSync(fullPath);
+
+            if (stat.isDirectory()) {
+                readTestFiles(fullPath);
+            } else if (item.endsWith(config.extension)) {
+                const content = fs.readFileSync(fullPath, 'utf-8');
+                testFiles.push({ path: fullPath, content });
+            }
+        }
     }
 
-    return className;
-}
-
-function collectTestFiles(force: boolean, config: Config, runningState: RunningState): CodeFile[] {
-    let testFiles: CodeFile[] = [];
-
-    if (runningState.buildState.compiledSuccessfully === false) {
-        testFiles = collectFilesWithExtension(
-            [config.testDir],
-            config.extension
-        );
-    } else if (!runningState.testResults.testsPassed) {
-        testFiles = runningState.testResults.failedTests.map((test) => {
-            const className = extractClassNameFromTest(test);
-            const testFilePath = path.join(
-                config.testDir,
-                className.replace(/\./g, '/') + config.extension
-            );
-            logger.debug(`Constructed test file path: ${testFilePath}`);
-
-            return {
-                path: testFilePath,
-                content: fs.existsSync(testFilePath)
-                    ? fs.readFileSync(testFilePath, 'utf-8')
-                    : '',
-            };
-        });
-    } else if (force) {
-        testFiles = collectFilesWithExtension(
-            [path.join(config.testDir)],
-            config.extension
-        );
-    }
-
+    readTestFiles(config.testDir);
     return testFiles;
 }
 
-export { runInitialTests, runFinalTests, runTests, appendXmlTestResults, extractClassNameFromTest, getTestOutput, collectTestFiles };
+interface XmlTestCase {
+    $: {
+        name: string;
+        classname: string;
+    };
+    failure?: unknown;
+    error?: unknown;
+}
+
+export function processTestResults(config: Config): TestResults {
+    const testReportPath = path.join(config.projectRoot, 'build', 'test-results', 'test');
+    const results: TestResults = {
+        testsPassed: true,
+        passedTests: [],
+        failedTests: [],
+        erroredTests: [],
+        lastRunTime: new Date()
+    };
+
+    if (!fs.existsSync(testReportPath)) {
+        logger.warn('Test report directory not found');
+        return results;
+    }
+
+    const files = fs.readdirSync(testReportPath);
+    files.forEach(file => {
+        if (!file.endsWith('.xml')) return;
+
+        const content = fs.readFileSync(path.join(testReportPath, file), 'utf-8');
+        const parser = new xml2js.Parser();
+        parser.parseString(content, (err, result) => {
+            if (err) {
+                logger.error(`Failed to parse test results: ${err}`);
+                return;
+            }
+
+            const testsuite = result.testsuite;
+            const testcases = testsuite.testcase || [];
+
+            testcases.forEach((testcase: XmlTestCase) => {
+                const testName = `${testcase.$.name} - ${testcase.$.classname}`;
+                if (testcase.failure || testcase.error) {
+                    results.testsPassed = false;
+                    results.failedTests.push(testName);
+                } else {
+                    results.passedTests.push(testName);
+                }
+            });
+        });
+    });
+
+    return results;
+}
