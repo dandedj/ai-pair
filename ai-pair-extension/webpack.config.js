@@ -14,13 +14,15 @@ const extensionConfig = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'extension.js',
-    libraryTarget: 'commonjs2'
+    libraryTarget: 'commonjs2',
+    devtoolModuleFilenameTemplate: '../[resource-path]'
   },
   externals: {
-    vscode: 'commonjs vscode'
+    vscode: 'commonjs vscode',
+    'ai-pair': 'commonjs ai-pair'
   },
   resolve: {
-    extensions: ['.ts', '.tsx', '.js']
+    extensions: ['.ts', '.tsx', '.js', '.jsx']
   },
   module: {
     rules: [
@@ -41,12 +43,13 @@ const extensionConfig = {
 /** @type {import('webpack').Configuration} */
 const webviewConfig = {
   target: 'web',
-  mode: 'none',
+  mode: 'development',
   entry: './src/webview/sidebar.tsx',
   output: {
     path: path.resolve(__dirname, 'dist', 'webview'),
     filename: 'sidebar.js',
-    libraryTarget: 'commonjs2'
+    libraryTarget: 'umd',
+    devtoolModuleFilenameTemplate: '../[resource-path]'
   },
   module: {
     rules: [
@@ -55,31 +58,38 @@ const webviewConfig = {
         exclude: /node_modules/,
         use: [
           {
-            loader: 'ts-loader'
+            loader: 'ts-loader',
+            options: {
+              compilerOptions: {
+                module: 'esnext'
+              }
+            }
           }
         ]
       }
     ]
   },
-  plugins: [
-    // Add this plugin to provide process.env
-    new webpack.ProvidePlugin({
-      process: 'process/browser',
-    }),
-    new webpack.DefinePlugin({
-      'process.env': JSON.stringify({}),
-    }),
-  ],
   resolve: {
-    extensions: ['.ts', '.tsx', '.js'],
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    alias: {
+      'vscode': path.resolve(__dirname, 'src/webview/stubs/vscode.js')
+    },
     fallback: {
-      "process": require.resolve("process/browser")
+      "path": require.resolve("path-browserify"),
+      "fs": false,
+      "child_process": false,
+      "timers": require.resolve("timers-browserify"),
+      "process": require.resolve("process/browser"),
+      "stream": require.resolve("stream-browserify")
     }
   },
-  externals: {
-    vscode: 'commonjs vscode'
-  },
-  devtool: 'nosources-source-map'
+  plugins: [
+    new webpack.ProvidePlugin({
+      React: 'react',
+      process: 'process/browser'
+    })
+  ],
+  devtool: 'source-map'
 };
 
 module.exports = [ extensionConfig, webviewConfig ];

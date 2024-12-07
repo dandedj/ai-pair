@@ -15,6 +15,20 @@
 				"kind": "build",
 				"isDefault": true
 			}
+		},
+		{
+			"label": "clean",
+			"type": "shell",
+			"command": "rm -rf ./dist",
+			"problemMatcher": []
+		},
+		{
+			"type": "shell",
+			"label": "build",
+			"command": "npm run build",
+			"group": "build",
+			"problemMatcher": [],
+			"dependsOn": ["clean"]
 		}
 	]
 }

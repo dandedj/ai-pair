@@ -1,53 +1,59 @@
 import * as React from 'react';
 import { componentStyles } from '../styles/components';
 import { LoadingDots } from './LoadingDots';
+import { Status, Config } from 'ai-pair';
+import { StatusIndicator } from './StatusIndicator';
+
+declare const vscode: any;
 
 interface StatusBarProps {
-    status?: 'idle' | 'thinking' | 'generating' | 'error';
-    message?: string;
-    isLoading?: boolean;
+    status: Status;
+    config: Config | null;
+    onToggleWatch: () => void;
+    onOpenSettings: () => void;
+    onStart: () => void;
+    onStop: () => void;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({ 
-    status = 'idle',
-    message = 'AI pair programmer is ready',
-    isLoading = false
+    status,
+    config,
+    onToggleWatch,
+    onOpenSettings,
+    onStart,
+    onStop
 }) => {
-    const getStatusColor = () => {
-        if (isLoading) return 'var(--vscode-statusBarItem-prominentBackground)';
-        switch (status) {
-            case 'thinking':
-                return 'var(--vscode-statusBarItem-warningBackground)';
-            case 'generating':
-                return 'var(--vscode-statusBarItem-prominentBackground)';
-            case 'error':
-                return 'var(--vscode-statusBarItem-errorBackground)';
-            default:
-                return 'var(--vscode-statusBarItem-activeBackground)';
-        }
-    };
-
     return (
-        <div style={componentStyles.panel}>
-            <div style={{
-                ...componentStyles.panelHeader,
-                backgroundColor: getStatusColor(),
-                color: 'var(--vscode-statusBarItem-foreground)',
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-            }}>
-                {isLoading ? (
-                    <LoadingDots />
-                ) : (
-                    <>
-                        <span>{status === 'thinking' ? '🤔' : 
-                              status === 'generating' ? '⚡' : 
-                              status === 'error' ? '❌' : '✓'}</span>
-                        <span style={{ flex: 1 }}>{message}</span>
-                    </>
+        <div style={componentStyles.statusBar}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <StatusIndicator status={status} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {config && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--vscode-foreground)', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={config.autoWatch}
+                            onChange={onToggleWatch}
+                            style={{ margin: 0 }}
+                        />
+                        Watch
+                    </label>
                 )}
+                <button
+                    style={componentStyles.iconButton}
+                    onClick={status === 'idle' ? onStart : onStop}
+                    title={status === 'idle' ? 'Start AI Pair' : 'Stop AI Pair'}
+                >
+                    <span className={`codicon codicon-${status === 'idle' ? 'play' : 'stop'}`} />
+                </button>
+                <button
+                    style={componentStyles.iconButton}
+                    onClick={onOpenSettings}
+                    title="Settings"
+                >
+                    <span className="codicon codicon-gear" />
+                </button>
             </div>
         </div>
     );

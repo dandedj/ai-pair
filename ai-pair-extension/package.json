@@ -1,22 +1,112 @@
 {
   "name": "ai-pair-extension",
   "displayName": "AI Pair Extension",
-  "description": "",
+  "description": "VSCode extension for AI Pair Programming",
   "version": "0.0.1",
+  "publisher": "Dandevelopment",
   "engines": {
     "vscode": "^1.85.0"
   },
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
-    "onStartupFinished"
+    "*"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "AI Pair",
+      "properties": {
+        "aiPair.model": {
+          "type": "string",
+          "default": "gpt-4o",
+          "enum": [
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-3.5-turbo",
+            "o1-preview",
+            "o1-mini",
+            "claude-3-5-sonnet",
+            "claude-3-haiku",
+            "gemini-2",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-1.0-pro",
+            "gemini-exp-1114",
+            "gemini-exp-1121",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-pro-latest",
+            "gemini-1.0-pro-latest"
+          ],
+          "description": "The AI model to use for pair programming"
+        },
+        "aiPair.logLevel": {
+          "type": "string",
+          "default": "info",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "description": "Log level for AI Pair"
+        },
+        "aiPair.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for Anthropic (Claude) models"
+        },
+        "aiPair.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for OpenAI models"
+        },
+        "aiPair.geminiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for Google Gemini models"
+        },
+        "aiPair.autoWatch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically watch for file changes"
+        },
+        "aiPair.maxTokens": {
+          "type": "number",
+          "default": 2000,
+          "description": "Maximum tokens per API request"
+        },
+        "aiPair.temperature": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Temperature for model responses"
+        },
+        "aiPair.numRetries": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of retries for code generation cycles"
+        },
+        "aiPair.escalateToPremiumModel": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to use a premium model for the last retry attempt"
+        },
+        "aiPair.escalationModel": {
+          "type": "string",
+          "default": "o1-preview",
+          "description": "The premium model to use when escalation is enabled"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
           "id": "ai-pair-sidebar",
           "title": "AI Pair",
-          "icon": "$(robot)"
+          "icon": "media/robot.svg"
         }
       ]
     },
@@ -25,63 +115,61 @@
         {
           "type": "webview",
           "id": "ai-pair-extension.configView",
-          "name": "Configuration"
+          "name": "AI Pair"
         }
       ]
     },
     "commands": [
       {
-        "command": "ai-pair-extension.showConfig",
-        "title": "Show AI Pair Configuration"
+        "command": "ai-pair-extension.start",
+        "title": "AI Pair: Start"
       },
       {
-        "command": "ai-pair-extension.startPairProgrammer",
-        "title": "Start AI Pair Programmer"
-      },
-      {
-        "command": "ai-pair-extension.stopPairProgrammer",
-        "title": "Stop AI Pair Programmer"
-      },
-      {
-        "command": "ai-pair-extension.addHint",
-        "title": "Add Hint to AI Pair"
-      },
-      {
-        "command": "ai-pair-extension.changeModel",
-        "title": "Change AI Model"
+        "command": "ai-pair-extension.openConfig",
+        "title": "AI Pair: Open Configuration"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
+    "clean": "rm -rf dist",
     "compile": "webpack",
     "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map",
+    "package": "webpack --mode development",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "vscode-test",
+    "build": "npm run package"
+  },
+  "dependencies": {
+    "@vscode/codicons": "^0.0.35",
+    "ai-pair": "file:../ai-pair",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@types/glob": "^8.1.0",
-    "@types/mocha": "^10.0.1",
-    "@types/node": "16.x",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/jest": "^29.5.14",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
     "@types/vscode": "^1.85.0",
-    "@types/vscode-webview": "^1.57.0",
-    "@typescript-eslint/eslint-plugin": "^5.59.1",
-    "@typescript-eslint/parser": "^5.59.1",
-    "eslint": "^8.39.0",
-    "glob": "^8.1.0",
-    "mocha": "^10.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.56.0",
+    "path-browserify": "^1.0.1",
     "process": "^0.11.10",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "ts-loader": "^9.4.2",
-    "typescript": "^5.0.4",
-    "webpack": "^5.81.0",
-    "webpack-cli": "^5.0.2"
+    "stream-browserify": "^3.0.0",
+    "timers-browserify": "^2.0.12",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   }
 }

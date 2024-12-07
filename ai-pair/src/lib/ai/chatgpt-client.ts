@@ -1,68 +1,60 @@
 import OpenAI from 'openai';
 import BaseAIClient from './base-ai-client';
 import { logger } from '../logger';
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { ChatCompletion, ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
-class ChatGPTClient extends BaseAIClient {
-    openai: OpenAI;
+export class ChatGPTClient extends BaseAIClient {
+    private openai: OpenAI;
 
-    constructor(apiKey: string, model: string = 'gpt-4o', tmpDir: string) {
+    constructor(apiKey: string, model: string, tmpDir: string) {
         super(apiKey, model, tmpDir);
-        this.openai = new OpenAI({apiKey: apiKey});
+        this.openai = new OpenAI({ apiKey });
     }
 
-    async generateCode(prompt: string, systemPrompt: string = ''): Promise<string> {
-        const timestamp = this.logRequest(prompt);
-
+    async generateResponse(prompt: string, systemPrompt: string, logDir: string): Promise<string> {
+        this.logRequest(prompt, logDir);
+        
         try {
             const isO1Model = this.model.startsWith('o1');
-
-            const messages: ChatCompletionMessageParam[] = isO1Model
-                ? [{ role: 'user', content: prompt }]
-                : [
-                      { role: 'system', content: systemPrompt },
-                      { role: 'user', content: prompt },
-                  ];
-
-            const maxTokens = 4096;
-            const maxCompletionTokens = 32768;
-            const tokenParamKey = isO1Model ? 'max_completion_tokens' : 'max_tokens';
-            const temperature = isO1Model ? 1.0 : 0.5;
+            const messages: ChatCompletionMessageParam[] = isO1Model ? 
+                [{ role: 'user' as const, content: prompt }] :
+                [
+                    { role: 'system' as const, content: systemPrompt },
+                    { role: 'user' as const, content: prompt }
+                ];
 
             const response = await this.openai.chat.completions.create({
                 model: this.model,
-                messages: messages,
-                temperature: temperature,
-                [tokenParamKey]: isO1Model ? maxCompletionTokens : maxTokens,
+                messages,
+                ...(isO1Model ? 
+                    { max_completion_tokens: 25000 } : 
+                    { temperature: 0.2, max_tokens: 4000 })
             });
 
-            const generatedCode = response.choices[0].message;
-            if (generatedCode && generatedCode.content) {
-                this.logResponse(generatedCode.content, timestamp);
-            } else {
-                throw new Error('Generated code content is null or undefined');
+            if (!response.choices[0].message?.content) {
+                throw new Error('No content in OpenAI response');
             }
 
-            this.updateTokenUsage(response.usage);
+            const generatedCode = response.choices[0].message.content;
+            this.logResponse(generatedCode, logDir);
+            this.updateTokenUsage(response);
 
-            return generatedCode.content;
-        } catch (error: any) {
-            logger.error('Error generating code:', error);
-            console.error(error.stack);
-
-            if (error.response && error.response.data) {
-                console.log(error.response.data);
+            return generatedCode;
+        } catch (error) {
+            const err = error as Error;
+            logger.error(`OpenAI API error: ${err.message}`);
+            if (err.message.includes('rate limit')) {
+                logger.info('Rate limit hit, waiting before retry...');
+                await new Promise(resolve => setTimeout(resolve, 20000));
             }
-            throw error;
+            throw err;
         }
     }
 
-    updateTokenUsage(apiResponse: any): void {
-        const usage = apiResponse.usage;
-        if (usage) {
-            this.logTokenUsage(usage.prompt_tokens, usage.completion_tokens);
+    protected async processResponse(response: ChatCompletion): Promise<string> {
+        if (!response.choices || response.choices.length === 0 || !response.choices[0].message?.content) {
+            throw new Error('Invalid response from OpenAI API');
         }
+        return response.choices[0].message.content;
     }
-}
-
-export { ChatGPTClient }; 
+} 

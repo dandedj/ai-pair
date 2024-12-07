@@ -1,168 +1,216 @@
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { vscodeStyles as styles } from './styles';
 import { componentStyles } from './styles/components';
 import { StatusBar } from './components/StatusBar';
-import { CompilationStatus } from './components/CompilationStatus';
+import { BuildState } from './components/BuildState';
 import { TestResults } from './components/TestResults';
-import { ProposedChanges, FileChange } from './components/ProposedChanges';
+import { CodeChanges, FileChange } from './components/CodeChanges';
+import { LogViewer } from './components/LogViewer';
+import { Status, RunningState, Config } from 'ai-pair';
+import { CycleDetails } from './components/CycleDetails';
+import { GenerationCycleDetails } from '../types/running-state';
+import { WelcomeComponent } from './components/WelcomeComponent';
+import { TimingDetails } from './components/TimingDetails';
+import { getVSCodeAPI } from './vscodeApi';
+import path from 'path';
 
-// Declare the vscode API
-declare global {
-    interface Window {
-        acquireVsCodeApi(): any;
-    }
-}
+export const Sidebar: React.FC = () => {
+    // Get vscode API using React.useMemo to ensure it's only created once
+    const vscodeApi = React.useMemo(() => getVSCodeAPI(), []);
 
-const vscode = window.acquireVsCodeApi();
-
-const Sidebar: React.FC = () => {
-    const [config, setConfig] = React.useState({
-        apiKey: '',
-        model: 'gpt-4',
-        autoWatch: true
+    const [runningState, setRunningState] = React.useState<RunningState | null>(() => {
+        const state = vscodeApi?.getState();
+        return state?.runningState || null;
     });
-    const [isConfigExpanded, setIsConfigExpanded] = React.useState(false);
-    const [status, setStatus] = React.useState<'idle' | 'thinking' | 'generating' | 'error'>('idle');
-    const [statusMessage, setStatusMessage] = React.useState('AI pair programmer is ready');
-    const [proposedChanges, setProposedChanges] = React.useState<FileChange[]>([
-        {
-            filePath: 'src/components/UserProfile.tsx',
-            changeType: 'modify'
-        },
-        {
-            filePath: 'src/styles/theme.css',
-            changeType: 'add'
-        },
-        {
-            filePath: 'src/utils/deprecated.ts',
-            changeType: 'delete'
-        }
-    ]);
+    const [config, setConfig] = React.useState<Config | null>(() => {
+        const state = vscodeApi?.getState();
+        return state?.config || null;
+    });
+    const [logs, setLogs] = React.useState<string[]>(() => {
+        const state = vscodeApi?.getState();
+        return state?.logs || [];
+    });
+    const [isLogExpanded, setIsLogExpanded] = React.useState(false);
+    const [selectedCycle, setSelectedCycle] = React.useState<GenerationCycleDetails | null>(() => {
+        const state = vscodeApi?.getState();
+        return state?.selectedCycle || null;
+    });
 
-    const [testResults] = React.useState([
-        {
-            name: 'UserProfile Component',
-            status: 'passed' as const,
-            duration: 0.8
-        },
-        {
-            name: 'Authentication Flow',
-            status: 'failed' as const,
-            duration: 1.2,
-            error: 'Expected token to be defined'
-        },
-        {
-            name: 'Theme Utils',
-            status: 'passed' as const,
-            duration: 0.3
+    // Update persisted state whenever it changes
+    React.useEffect(() => {
+        if (vscodeApi) {
+            vscodeApi.setState({
+                runningState,
+                config,
+                logs,
+                selectedCycle
+            });
         }
-    ]);
+    }, [runningState, config, logs, selectedCycle, vscodeApi]);
 
     React.useEffect(() => {
-        // Handle messages from the extension
-        window.addEventListener('message', event => {
+        const handleMessage = (event: MessageEvent) => {
             const message = event.data;
+
             switch (message.type) {
+                case 'stateUpdate':
+                    setRunningState(message.state);
+                    setSelectedCycle(null);
+                    break;
                 case 'configUpdate':
                     setConfig(message.config);
                     break;
-                case 'statusUpdate':
-                    setStatus(message.status);
-                    setStatusMessage(message.message);
-                    break;
-                case 'proposedChanges':
-                    setProposedChanges(message.changes);
+                case 'logUpdate':
+                    if (Array.isArray(message.logs)) {
+                        setLogs(message.logs);
+                    } else {
+                        console.warn('Received invalid logs format:', message.logs);
+                    }
                     break;
             }
-        });
-    }, []);
+        };
 
-    const handleConfigChange = (key: string, value: any) => {
-        vscode.postMessage({
+        // Add event listener
+        window.addEventListener('message', handleMessage);
+        
+        console.log('Setting up log polling...');
+        
+        // Request initial logs
+        if (vscodeApi) {
+            console.log('Requesting initial logs...');
+            vscodeApi.postMessage({ type: 'requestLogs' });
+        }
+        
+        // Set up periodic log updates
+        const logInterval = setInterval(() => {
+            if (vscodeApi) {
+                // console.log('Polling for logs...');
+                vscodeApi.postMessage({ type: 'requestLogs' });
+            }
+        }, 500);
+
+        return () => {
+            window.removeEventListener('message', handleMessage);
+            clearInterval(logInterval);
+        };
+    }, [vscodeApi]);
+
+    // Don't render until we have the initial state
+    if (!runningState) {
+        return null;
+    }
+
+    const handleViewDiff = (filePath: string) => {
+        vscodeApi?.postMessage({ type: 'viewDiff', filePath });
+    };
+
+    const openSettings = () => {
+        vscodeApi?.postMessage({ type: 'openSettings' });
+    };
+
+    const handleStart = () => {
+        vscodeApi?.postMessage({ type: 'startAIPair' });
+    };
+
+    const handleStop = () => {
+        vscodeApi?.postMessage({ type: 'stopAIPair' });
+    };
+
+    const toggleWatch = () => {
+        vscodeApi?.postMessage({
             type: 'updateConfig',
-            key,
-            value
+            key: 'autoWatch',
+            value: !config?.autoWatch
         });
     };
 
-    const handleViewDiff = (filePath: string) => {
-        vscode.postMessage({
-            type: 'viewDiff',
-            filePath
-        });
+    const handleCycleSelect = (cycle: GenerationCycleDetails) => {
+        setSelectedCycle(cycle);
+    };
+
+    // Get the test results and code changes to display based on selected cycle
+    const displayTestResults = selectedCycle ? selectedCycle.initialTestResults : runningState.testResults;
+    const displayCodeChanges = selectedCycle ? selectedCycle.codeChanges : runningState.codeChanges;
+    const displayBuildState = selectedCycle ? 
+        (selectedCycle.initialBuildState || runningState.buildState) : 
+        runningState.buildState;
+
+    const displayFinalBuildState = selectedCycle?.finalBuildState;
+
+    const onViewLogs = (logPath: string) => {
+        try {
+            if (!vscodeApi) {
+                throw new Error('VSCode API not available');
+            }
+            vscodeApi.postMessage({ 
+                type: 'viewLogs',
+                logPath 
+            });
+        } catch (error) {
+            console.error('Error viewing logs:', error);
+        }
     };
 
     return (
-        <div style={styles.container}>
-            <StatusBar 
-                status={status}
-                message={statusMessage}
+        <div style={{ 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            padding: '4px'
+        }}>
+            <StatusBar
+                status={runningState?.status || 'idle'}
+                config={config}
+                onToggleWatch={toggleWatch}
+                onOpenSettings={openSettings}
+                onStart={handleStart}
+                onStop={handleStop}
             />
-            
-            <CompilationStatus isCompiled={true} />
-            
-            <TestResults results={testResults} />
 
-            <ProposedChanges 
-                changes={proposedChanges} 
-                onViewDiff={handleViewDiff}
-            />
+            {runningState && runningState.generationCycleDetails.length === 0 ? (
+                <WelcomeComponent 
+                    onOpenSettings={openSettings}
+                    onStart={handleStart}
+                />
+            ) : (
+                <>
+                    <CycleDetails
+                        cycles={runningState.generationCycleDetails}
+                        selectedCycle={selectedCycle}
+                        onCycleSelect={setSelectedCycle}
+                    />
 
-            <div style={componentStyles.panel}>
-                <div 
-                    style={{
-                        ...componentStyles.panelHeader,
-                        cursor: 'pointer'
-                    }}
-                    onClick={() => setIsConfigExpanded(!isConfigExpanded)}
-                >
-                    <h3 style={componentStyles.panelTitle}>Configuration</h3>
-                    <span>{isConfigExpanded ? '▼' : '▶'}</span>
-                </div>
-                
-                {isConfigExpanded && (
-                    <div style={{ padding: '12px' }}>
-                        <div style={styles.formGroup}>
-                            <div style={styles.labelContainer}>API Key:</div>
-                            <input
-                                type="password"
-                                style={styles.input}
-                                value={config.apiKey}
-                                onChange={e => handleConfigChange('apiKey', e.target.value)}
-                            />
-                        </div>
-
-                        <div style={styles.formGroup}>
-                            <div style={styles.labelContainer}>Model:</div>
-                            <select
-                                style={styles.select}
-                                value={config.model}
-                                onChange={e => handleConfigChange('model', e.target.value)}
-                            >
-                                <option value="gpt-4">GPT-4</option>
-                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                                <option value="claude-2">Claude 2</option>
-                            </select>
-                        </div>
-
-                        <div style={styles.formGroup}>
-                            <div style={styles.labelContainer}>Auto Watch:</div>
-                            <input
-                                type="checkbox"
-                                style={styles.checkbox}
-                                checked={config.autoWatch}
-                                onChange={e => handleConfigChange('autoWatch', e.target.checked)}
-                            />
-                        </div>
+                    <div style={{ 
+                        position: 'fixed',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: '250px',
+                        borderTop: '1px solid var(--vscode-panel-border)',
+                        background: 'var(--vscode-editor-background)'
+                    }}>
+                        <LogViewer 
+                            logs={logs} 
+                            onViewLogs={onViewLogs} 
+                            config={config || undefined}
+                        />
                     </div>
-                )}
-            </div>
+                </>
+            )}
         </div>
     );
 };
 
-ReactDOM.render(
-    <Sidebar />,
-    document.getElementById('root')
-); 
+// Initialize after component definition
+const vscodeApi = getVSCodeAPI();
+if (!vscodeApi) {
+    console.error('Failed to acquire VS Code API');
+} else {
+    try {
+        const root = createRoot(document.getElementById('root')!);
+        root.render(<Sidebar />);
+    } catch (error) {
+        console.error('Failed to render Sidebar:', error);
+    }
+} 

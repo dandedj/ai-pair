@@ -3,10 +3,9 @@
  "version": "1.0.0",
  "private": true,
  "scripts": {
-  "build": "npm run build:ai-pair && npm run build:ai-pair-cli && npm run build:ai-pair-vscode && npm run build:ai-pair-extension",
+  "build": "npm run build:ai-pair && npm run build:ai-pair-cli && npm run build:ai-pair-extension",
   "build:ai-pair": "cd ai-pair && npm install && npm run build",
   "build:ai-pair-cli": "cd ai-pair-cli && npm install && npm run build",
-  "build:ai-pair-vscode": "cd ai-pair-vscode && npm install && npm run build",
   "build:ai-pair-extension": "cd ai-pair-extension && npm install && npm run build"
  },
  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",

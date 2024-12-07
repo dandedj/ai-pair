@@ -1,209 +1,390 @@
+import { jest, expect, describe, it, beforeEach } from '@jest/globals';
 import fs from 'fs';
-import path from 'path';
-import { parseAndApplyGeneratedCode, splitIntoFileSections, extractCodeFromMarkdown } from '../../src/lib/code-parser';
-import { logger } from '../../src/lib/logger';
-import { Config } from '../../src/models/config';
-import { RunningState, CodeChangeSummary } from '../../src/models/running-state';
+import { parseAndApplyGeneratedCode, extractFileBlocks } from '../../src/lib/code-parser';
+import { Config } from '../../src/types/config';
+import { RunningState } from '../../src/types/running-state';
+import * as fileUtils from '../../src/lib/file-utils';
 
 jest.mock('fs');
+jest.mock('../../src/lib/file-utils');
 jest.mock('../../src/lib/logger');
-jest.mock('../../src/lib/file-utils', () => ({
-    ensureDirectoryExists: jest.fn(),
-}));
 
-describe('parseAndApplyGeneratedCode', () => {
+describe('code-parser', () => {
     let config: Config;
-    let mockRunningState: RunningState;
+    let runningState: RunningState;
 
     beforeEach(() => {
         jest.clearAllMocks();
-
-        (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
-            return filePath === '/mockProject' || filePath === '/mockPrompts' || filePath.includes('existingFile.ts');
+        // Mock filesystem checks
+        (fs.existsSync as jest.Mock).mockImplementation((path: unknown) => {
+            return typeof path === 'string' && (path.includes('/test/project') || path.includes('prompts'));
         });
-
-        // Initialize a real Config object with realistic values
-        config = new Config({
-            projectRoot: '/mockProject',
-            tmpDir: '/mockTmp',
-            extension: '.ts',
-            anthropicApiKey: 'abc',
-            openaiApiKey: 'def',
-            geminiApiKey: 'ghi',
-            model: 'gpt-4o',
-            numRetries: 3,
-            systemPrompt: '',
-            srcDir: '/mockSrc',
-            testDir: '/mockTest',
-            logLevel: 'debug',
-            promptsPath: '/mockPrompts',
-            promptTemplate: '',
-            noIssuePromptTemplate: ''
-        });
-
-        mockRunningState = new RunningState();
-    });
-
-    it('should create new files and modify existing ones', () => {
-        const generatedCode = `File: src/newFile.ts
-New typeScript file content
-
-File: src/existingFile.ts
-Existing typeScript file content`;
-
-        const result: CodeChangeSummary = parseAndApplyGeneratedCode(config, mockRunningState, generatedCode);
-
-        expect(fs.writeFileSync).toHaveBeenCalledWith(
-            path.join('/mockProject', 'src/newFile.ts'),
-            "New typeScript file content",
-            'utf-8'
-        );
-        expect(fs.writeFileSync).toHaveBeenCalledWith(
-            path.join('/mockProject', 'src/existingFile.ts'),
-            "Existing typeScript file content",
-            'utf-8'
-        );
-
-        expect(result.newFiles).toContain('src/newFile.ts');
-        expect(result.modifiedFiles).toContain('src/existingFile.ts');
-        expect(result.newFiles.length).toBe(1);
-        expect(result.modifiedFiles.length).toBe(1);
-    });
-
-    it('should not modify test files', () => {
-        const generatedCode = `File: /test/test.java
-      
-      public Class Test {
-      
-      }`;
-
-        parseAndApplyGeneratedCode(config, mockRunningState, generatedCode);
-
-        expect(fs.writeFileSync).not.toHaveBeenCalled();
-        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Attempted to modify a test file'));
-    });
-
-});
-
-describe('splitIntoFileSections', () => {
-    it('should split generated code into file sections', () => {
-        const generatedCode = String.raw`File: src/file1.ts
-console.log('File 1 content');
-
-File: src/file2.ts
-console.log('File 2 content');
-`;
-
-        const result = splitIntoFileSections(generatedCode);
-
-        expect(result).toEqual([
-            { filePath: 'src/file1.ts', code: "console.log('File 1 content');" },
-            { filePath: 'src/file2.ts', code: "console.log('File 2 content');" }
-        ]);
-    });
-
-    it('should handle code blocks in markdown format', () => {
-        const generatedCode = `File: src/file1.ts
-\`\`\`typescript
-console.log('File 1 content');
-\`\`\`
-
-File: src/file2.ts
-\`\`\`typescript
-console.log('File 2 content');
-\`\`\`
-`;
-
-        const result = splitIntoFileSections(generatedCode);
-
-        expect(result).toEqual([
-            { filePath: 'src/file1.ts', code: "console.log('File 1 content');" },
-            { filePath: 'src/file2.ts', code: "console.log('File 2 content');" }
-        ]);
-    });
-
-    it('should return an empty array for empty input', () => {
-        const generatedCode = String.raw``;
-
-        const result = splitIntoFileSections(generatedCode);
-
-        expect(result).toEqual([]);
-    });
-
-    it('should handle malformed input gracefully', () => {
-        const generatedCode = String.raw`I couldn't fix your code. 
-`;
-
-        const result = splitIntoFileSections(generatedCode);
-
-        // shouldn't write any files
-        expect(fs.writeFileSync).not.toHaveBeenCalled();
         
-        // Should return an empty array for malformed input
-        expect(result).toEqual([]);
+        config = new Config({
+            projectRoot: '/test/project',
+            model: 'test-model',
+            extension: '.ts',
+            testDir: 'test',
+            tmpDir: 'tmp',
+            logLevel: 'info',
+            openaiApiKey: 'test-key',
+            srcDir: '/test/project/src',
+            promptsPath: '/test/project/prompts'
+        });
+        runningState = new RunningState();
     });
-});
 
-describe('extractCodeFromMarkdown', () => {
-    it('should extract code from markdown code blocks', () => {
-        const markdownContent = `Here is some text.
+    describe('parseAndApplyGeneratedCode', () => {
+        it('should parse and write new files correctly', () => {
+            const generatedCode = `
+// File: src/components/Button.tsx
+\`\`\`
+import React from 'react';
+export const Button = () => <button>Click me</button>;
+\`\`\`
+            `;
 
-\`\`\`typescript
-console.log('Hello, World!');
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(false);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.newFiles).toContain('src/components/Button.tsx');
+            expect(fileUtils.safeWriteFile).toHaveBeenCalled();
+        });
+
+        it('should handle modified files correctly', () => {
+            const generatedCode = `
+// File: src/components/Button.tsx
+\`\`\`
+import React from 'react';
+export const Button = () => <button>Updated</button>;
+\`\`\`
+            `;
+
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(true);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.modifiedFiles).toContain('src/components/Button.tsx');
+            expect(fileUtils.safeWriteFile).toHaveBeenCalled();
+        });
+
+        it('should handle build files correctly', () => {
+            const generatedCode = `
+// File: build.gradle.kts
+\`\`\`
+{
+  "name": "test-project",
+  "version": "1.0.0"
+}
+\`\`\`
+            `;
+
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(true);
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+
+            parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(fileUtils.safeWriteFile).toHaveBeenCalled();
+        });
+
+        it('should skip test files', () => {
+            const generatedCode = `
+// File: src/__tests__/Button.test.tsx
+\`\`\`
+import { render } from '@testing-library/react';
+test('Button renders', () => {});
+\`\`\`
+            `;
+
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(true);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.newFiles).toHaveLength(0);
+            expect(result.modifiedFiles).toHaveLength(0);
+            expect(result.buildFiles).toHaveLength(0);
+            expect(fileUtils.safeWriteFile).not.toHaveBeenCalled();
+        });
+
+        it('should handle multiple files in generated code', () => {
+            const generatedCode = `
+// File: src/components/Button.tsx
+\`\`\`
+import React from 'react';
+export const Button = () => <button>Click me</button>;
 \`\`\`
 
-More text here.
+// File: src/styles/button.css
+\`\`\`
+.button { color: blue; }
+\`\`\`
+            `;
 
-\`\`\`javascript
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(false);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.newFiles).toContain('src/components/Button.tsx');
+            expect(result.newFiles).toContain('src/styles/button.css');
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledTimes(2);
+        });
+
+        it('should handle complex code blocks with language identifiers and mixed formats', () => {
+            const generatedCode = `
+// File: src/first.ts
+\`\`\`typescript
+const x = 1;
+const y = 2;
+\`\`\`
+
+File: src/second.ts
+\`\`\`
+export const z = 3;
+
 function test() {
     return true;
 }
-\`\`\``;
+\`\`\`
 
-        const result = extractCodeFromMarkdown(markdownContent);
+// File: src/third.ts
+\`\`\`javascript
+// This is a comment
+const a = {
+    b: 'test',
+    c: [1, 2, 3]
+};
+\`\`\`
+            `;
 
-        expect(result).toBe(
-            "console.log('Hello, World!');\nfunction test() {\n    return true;\n}"
-        );
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(false);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.newFiles).toContain('src/first.ts');
+            expect(result.newFiles).toContain('src/second.ts');
+            expect(result.newFiles).toContain('src/third.ts');
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledTimes(3);
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledWith(
+                expect.stringContaining('first.ts'),
+                expect.stringContaining('const x = 1')
+            );
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledWith(
+                expect.stringContaining('second.ts'),
+                expect.stringContaining('export const z = 3')
+            );
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledWith(
+                expect.stringContaining('third.ts'),
+                expect.stringContaining('const a = {')
+            );
+        });
     });
 
-    it('should return an empty string if no code blocks are present', () => {
-        const markdownContent = `
-        Here is some text without any code blocks.
-        `;
+    describe('writeFile', () => {
+        it('should skip test files and not write them', () => {
+            const generatedCode = `
+// File: src/test/Button.test.tsx
+\`\`\`
+test('it works', () => {});
+\`\`\`
+            `;
 
-        const result = extractCodeFromMarkdown(markdownContent);
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(true);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(false);
 
-        expect(result).toBe('');
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.newFiles).toHaveLength(0);
+            expect(result.modifiedFiles).toHaveLength(0);
+            expect(result.buildFiles).toHaveLength(0);
+            expect(fileUtils.safeWriteFile).not.toHaveBeenCalled();
+        });
+
+        it('should categorize build files correctly', () => {
+            const generatedCode = `
+// File: package.json
+\`\`\`
+{ "name": "test" }
+\`\`\`
+            `;
+
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(true);
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(false);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.buildFiles).toContain('package.json');
+            expect(result.newFiles).toHaveLength(0);
+            expect(result.modifiedFiles).toHaveLength(0);
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledWith(
+                expect.stringContaining('package.json'),
+                expect.stringContaining('test')
+            );
+        });
+
+        it('should categorize modified files correctly', () => {
+            const generatedCode = `
+// File: src/existing.ts
+\`\`\`
+console.log('modified');
+\`\`\`
+            `;
+
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(true);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.modifiedFiles).toContain('src/existing.ts');
+            expect(result.newFiles).toHaveLength(0);
+            expect(result.buildFiles).toHaveLength(0);
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledWith(
+                expect.stringContaining('existing.ts'),
+                expect.stringContaining('modified')
+            );
+        });
+
+        it('should categorize new files correctly', () => {
+            const generatedCode = `
+// File: src/new-file.ts
+\`\`\`
+console.log('new');
+\`\`\`
+            `;
+
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(false);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.newFiles).toContain('src/new-file.ts');
+            expect(result.modifiedFiles).toHaveLength(0);
+            expect(result.buildFiles).toHaveLength(0);
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledWith(
+                expect.stringContaining('new-file.ts'),
+                expect.stringContaining('new')
+            );
+        });
+
+        it('should handle path resolution correctly', () => {
+            const generatedCode = `
+// File: ./relative/path/file.ts
+\`\`\`
+console.log('test');
+\`\`\`
+            `;
+
+            (fileUtils.isTestFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.isBuildFile as jest.Mock).mockReturnValue(false);
+            (fileUtils.fileExists as jest.Mock).mockReturnValue(false);
+
+            const result = parseAndApplyGeneratedCode(config, runningState, generatedCode);
+
+            expect(result.newFiles).toContain('relative/path/file.ts');
+            expect(fileUtils.safeWriteFile).toHaveBeenCalledWith(
+                expect.stringContaining('/test/project/relative/path/file.ts'),
+                expect.any(String)
+            );
+        });
     });
 
-    it('should handle multiple code blocks of the same language', () => {
-        const markdownContent = `
-        \`\`\`typescript
-        console.log('First block');
-        \`\`\`
+    describe('extractFileBlocks', () => {
+        it('should extract blocks with markdown code blocks', () => {
+            const input = `
+// File: src/first.ts
+\`\`\`typescript
+const x = 1;
+\`\`\`
 
-        \`\`\`typescript
-        console.log('Second block');
-        \`\`\`
-        `;
+File: src/second.ts
+\`\`\`
+const y = 2;
+\`\`\`
+            `;
 
-        const result = extractCodeFromMarkdown(markdownContent);
+            const blocks = extractFileBlocks(input);
+            expect(blocks).toHaveLength(2);
+            expect(blocks[0]).toEqual({
+                filePath: 'src/first.ts',
+                content: 'const x = 1;'
+            });
+            expect(blocks[1]).toEqual({
+                filePath: 'src/second.ts',
+                content: 'const y = 2;'
+            });
+        });
 
-        expect(result).toBe(
-            "console.log('First block');\nconsole.log('Second block');"
-        );
-    });
+        it('should extract blocks without markdown', () => {
+            const input = `
+File: src/first.ts
+const x = 1;
+const y = 2;
 
-    it('should handle code blocks with no specified language', () => {
-        const markdownContent = `
-        \`\`\`
-        console.log('No language specified');
-        \`\`\`
-        `;
+// File: src/second.ts
+function test() {
+    return true;
+}
+            `;
 
-        const result = extractCodeFromMarkdown(markdownContent);
+            const blocks = extractFileBlocks(input);
+            expect(blocks).toHaveLength(2);
+            expect(blocks[0]).toEqual({
+                filePath: 'src/first.ts',
+                content: 'const x = 1;\nconst y = 2;'
+            });
+            expect(blocks[1]).toEqual({
+                filePath: 'src/second.ts',
+                content: 'function test() {\n    return true;\n}'
+            });
+        });
 
-        expect(result).toBe("console.log('No language specified');");
+        it('should handle mixed formats in the same input', () => {
+            const input = `
+// File: src/first.ts
+\`\`\`typescript
+const x = 1;
+\`\`\`
+
+File: src/second.ts
+const y = 2;
+            `;
+
+            const blocks = extractFileBlocks(input);
+            expect(blocks).toHaveLength(2);
+            expect(blocks[0]).toEqual({
+                filePath: 'src/first.ts',
+                content: 'const x = 1;'
+            });
+            expect(blocks[1]).toEqual({
+                filePath: 'src/second.ts',
+                content: 'const y = 2;'
+            });
+        });
+
+        it('should skip empty or invalid blocks', () => {
+            const input = `File: src/empty.ts
+
+File: src/valid.ts
+const x = 1;`;
+
+            const blocks = extractFileBlocks(input);
+            expect(blocks).toHaveLength(1);
+            expect(blocks[0]).toEqual({
+                filePath: 'src/valid.ts',
+                content: 'const x = 1;'
+            });
+        });
     });
 });

@@ -37,6 +37,10 @@ class AIClientFactory {
         return this.modelFamilies[model];
     }
 
+    getModelFamilies(): string[] {
+        return Object.keys(this.modelFamilies);
+    }
+
     getApiKeyForModel(config: Config, model: string): string {
         const family = this.getModelFamily(model);
         const apiKey = config.apiKeys[family];

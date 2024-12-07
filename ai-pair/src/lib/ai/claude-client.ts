@@ -1,6 +1,5 @@
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosError } from 'axios';
 import BaseAIClient from './base-ai-client';
-import { logger } from '../logger';
 
 interface ApiResponse {
     completion: string;
@@ -10,19 +9,19 @@ interface ApiResponse {
     };
 }
 
-class ClaudeClient extends BaseAIClient {
-    apiUrl: string;
+export class ClaudeClient extends BaseAIClient {
+    private apiUrl: string;
 
-    constructor(apiKey: string, model: string = 'claude-3-5-sonnet', tmpDir: string) {
+    constructor(apiKey: string, model: string, tmpDir: string) {
         super(apiKey, model, tmpDir);
         this.apiUrl = 'https://api.anthropic.com/v1/complete';
     }
 
-    async generateCode(prompt: string, systemPrompt: string = ''): Promise<string> {
+    async generateResponse(prompt: string, systemPrompt: string): Promise<string> {
         const timestamp = this.logRequest(prompt);
 
         try {
-            const response: AxiosResponse<ApiResponse> = await axios.post(
+            const response = await axios.post<ApiResponse>(
                 this.apiUrl,
                 {
                     model: this.model,
@@ -43,18 +42,14 @@ class ClaudeClient extends BaseAIClient {
             this.updateTokenUsage(response.data);
 
             return generatedCode;
-        } catch (error: any) {
-            logger.error('Error generating code:', error);
-            throw error;
+        } catch (error) {
+            const err = error as AxiosError;
+            this.logger.error(`Error generating code: ${err.message}`);
+            throw err;
         }
     }
 
-    updateTokenUsage(apiResponse: ApiResponse): void {
-        if (apiResponse.usage) {
-            const usage = apiResponse.usage;
-            this.logTokenUsage(usage.prompt_tokens, usage.completion_tokens);
-        }
+    protected async processResponse(response: ApiResponse): Promise<string> {
+        return response.completion.trim();
     }
-}
-
-export { ClaudeClient }; 
+} 

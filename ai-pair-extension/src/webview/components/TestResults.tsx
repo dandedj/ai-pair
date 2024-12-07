@@ -2,48 +2,79 @@ import * as React from 'react';
 import { componentStyles } from '../styles/components';
 import { LoadingDots } from './LoadingDots';
 
-interface TestResult {
-    name: string;
-    status: 'passed' | 'failed' | 'skipped';
-    duration: number;
-    error?: string;
-}
+const vscode = (window as any).vscode;
 
 interface TestResultsProps {
-    results: TestResult[];
-    isLoading?: boolean;
+    passedTests: string[];
+    failedTests: string[];
+    erroredTests: string[];
+    isLoading: boolean;
+    hideHeader?: boolean;
+    logFile?: string;
+    onViewLog?: (logFile: string) => void;
 }
 
 export const TestResults: React.FC<TestResultsProps> = ({ 
-    results,
-    isLoading = false 
+    passedTests = [],
+    failedTests = [],
+    erroredTests = [],
+    isLoading = false,
+    hideHeader,
+    logFile,
+    onViewLog,
 }) => {
+    const totalTests = passedTests.length + failedTests.length + erroredTests.length;
+
+    const handleViewLog = () => {
+        if (logFile && onViewLog) {
+            onViewLog(logFile);
+        } else {
+            vscode.postMessage({ /* ... */ });
+        }
+    };
+
     return (
-        <div style={componentStyles.panel}>
-            <div style={componentStyles.panelHeader}>
-                <h3 style={componentStyles.panelTitle}>Test Results</h3>
-                <span style={componentStyles.badge}>
-                    {isLoading ? '...' : `${results.filter(r => r.status === 'passed').length}/${results.length}`}
-                </span>
-            </div>
+        <div>
+            {!hideHeader && (
+                <div style={componentStyles.panelHeader}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <h3 style={componentStyles.panelTitle}>Test Results</h3>
+                        {logFile && (
+                            <button 
+                                onClick={handleViewLog}
+                                style={componentStyles.linkButton}
+                            >
+                                View Logs
+                            </button>
+                        )}
+                    </div>
+                    <span style={componentStyles.badge}>
+                        {isLoading ? '...' : `${passedTests.length}/${totalTests}`}
+                    </span>
+                </div>
+            )}
             <div style={componentStyles.tableContainer}>
                 {isLoading ? (
                     <LoadingDots />
                 ) : (
                     <table style={componentStyles.table}>
                         <tbody>
-                            {results.map((result, index) => (
-                                <tr key={index} style={componentStyles.tableRow}>
-                                    <td style={componentStyles.tableCell}>
-                                        {result.status === 'passed' ? '✓' : 
-                                         result.status === 'failed' ? '✕' : '○'}
-                                    </td>
-                                    <td style={{...componentStyles.tableCell, width: '100%'}}>
-                                        {result.name}
-                                    </td>
-                                    <td style={componentStyles.tableCell}>
-                                        {result.duration.toFixed(1)}s
-                                    </td>
+                            {passedTests.map((test, index) => (
+                                <tr key={`pass-${index}`} style={componentStyles.tableRow}>
+                                    <td style={componentStyles.tableCell}>✓</td>
+                                    <td style={{...componentStyles.tableCell, width: '100%'}}>{test}</td>
+                                </tr>
+                            ))}
+                            {failedTests.map((test, index) => (
+                                <tr key={`fail-${index}`} style={componentStyles.tableRow}>
+                                    <td style={componentStyles.tableCell}>✕</td>
+                                    <td style={{...componentStyles.tableCell, width: '100%'}}>{test}</td>
+                                </tr>
+                            ))}
+                            {erroredTests.map((test, index) => (
+                                <tr key={`error-${index}`} style={componentStyles.tableRow}>
+                                    <td style={componentStyles.tableCell}>⚠</td>
+                                    <td style={{...componentStyles.tableCell, width: '100%'}}>{test}</td>
                                 </tr>
                             ))}
                         </tbody>
