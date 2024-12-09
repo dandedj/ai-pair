@@ -27,6 +27,7 @@ class AIClientFactory {
             'gemini-1.0-pro': 'gemini',
             'gemini-exp-1114': 'gemini',
             'gemini-exp-1121': 'gemini',
+            'gemini-exp-1206': 'gemini',
             'gemini-1.5-flash-latest': 'gemini',
             'gemini-1.5-pro-latest': 'gemini',
             'gemini-1.0-pro-latest': 'gemini',

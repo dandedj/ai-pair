@@ -1,11 +1,10 @@
 import * as React from 'react';
 import { componentStyles } from '../styles/components';
-import { GenerationCycleDetails } from '../../types/running-state';
+import { GenerationCycleDetails } from 'ai-pair';
 import { getVSCodeAPI } from '../vscodeApi';
 import { TestResults } from './TestResults';
 import { CodeChanges } from './CodeChanges';
 import { TimingDetails } from './TimingDetails';
-import { BuildState } from './BuildState';
 
 declare const vscode: any;
 
@@ -163,12 +162,33 @@ export const CycleDetails: React.FC<CycleDetailsProps> = ({
 
     const isSuccessful = (cycle: GenerationCycleDetails) => {
         if (!cycle.timings?.cycleEndTime) return null; // Still in progress
+        
+        // Success if initial tests passed and not forced
+        if (!cycle.wasForced && 
+            cycle.initialBuildState?.compiledSuccessfully && 
+            cycle.initialTestResults?.failedTests.length === 0 && 
+            cycle.initialTestResults?.erroredTests.length === 0) {
+            return true;
+        }
+
+        // Or if final tests passed
         return cycle.finalBuildState?.compiledSuccessfully && 
                cycle.finalTestResults?.failedTests.length === 0 &&
                cycle.finalTestResults?.erroredTests.length === 0;
     };
 
     const getTotalTests = (cycle: GenerationCycleDetails) => {
+        // Use initial results if cycle wasn't forced and initial tests passed
+        if (!cycle.wasForced && 
+            cycle.initialBuildState?.compiledSuccessfully && 
+            cycle.initialTestResults?.failedTests.length === 0 && 
+            cycle.initialTestResults?.erroredTests.length === 0) {
+            const initial = cycle.initialTestResults;
+            return (initial?.passedTests.length || 0) + 
+                   (initial?.failedTests.length || 0) + 
+                   (initial?.erroredTests.length || 0);
+        }
+        // Otherwise use final results
         const final = cycle.finalTestResults;
         return (final?.passedTests.length || 0) + 
                (final?.failedTests.length || 0) + 
@@ -191,10 +211,22 @@ export const CycleDetails: React.FC<CycleDetailsProps> = ({
     };
 
     const isBuildComplete = (cycle: GenerationCycleDetails) => {
+        if (!cycle.wasForced && 
+            cycle.initialBuildState?.compiledSuccessfully && 
+            cycle.initialTestResults?.failedTests.length === 0 && 
+            cycle.initialTestResults?.erroredTests.length === 0) {
+            return !!cycle.initialBuildState;
+        }
         return !!cycle.finalBuildState;
     };
 
     const areTestsComplete = (cycle: GenerationCycleDetails) => {
+        if (!cycle.wasForced && 
+            cycle.initialBuildState?.compiledSuccessfully && 
+            cycle.initialTestResults?.failedTests.length === 0 && 
+            cycle.initialTestResults?.erroredTests.length === 0) {
+            return !!cycle.initialTestResults;
+        }
         return !!cycle.finalTestResults;
     };
 
@@ -263,8 +295,23 @@ export const CycleDetails: React.FC<CycleDetailsProps> = ({
                                         <td style={{ ...componentStyles.tableCell, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             {isBuildComplete(cycle) ? (
                                                 <>
-                                                    <span className={`codicon codicon-${cycle.finalBuildState?.compiledSuccessfully ? 'check' : 'x'}`} 
-                                                          style={{ color: cycle.finalBuildState?.compiledSuccessfully ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-testing-iconFailed)' }}
+                                                    <span className={`codicon codicon-${
+                                                        (!cycle.wasForced && 
+                                                         cycle.initialBuildState?.compiledSuccessfully && 
+                                                         cycle.initialTestResults?.failedTests.length === 0 && 
+                                                         cycle.initialTestResults?.erroredTests.length === 0)
+                                                            ? cycle.initialBuildState?.compiledSuccessfully
+                                                            : cycle.finalBuildState?.compiledSuccessfully 
+                                                            ? 'check' 
+                                                            : 'x'}`} 
+                                                          style={{ color: ((!cycle.wasForced && 
+                                                                          cycle.initialBuildState?.compiledSuccessfully && 
+                                                                          cycle.initialTestResults?.failedTests.length === 0 && 
+                                                                          cycle.initialTestResults?.erroredTests.length === 0)
+                                                                            ? cycle.initialBuildState?.compiledSuccessfully
+                                                                            : cycle.finalBuildState?.compiledSuccessfully)
+                                                                    ? 'var(--vscode-testing-iconPassed)' 
+                                                                    : 'var(--vscode-testing-iconFailed)' }}
                                                     />
                                                     <span>build</span>
                                                 </>
@@ -277,7 +324,12 @@ export const CycleDetails: React.FC<CycleDetailsProps> = ({
                                         </td>
                                         <td style={componentStyles.tableCell}>
                                             {areTestsComplete(cycle) ? (
-                                                `${cycle.finalTestResults?.passedTests.length || 0}/${getTotalTests(cycle)} tests`
+                                                `${(!cycle.wasForced && 
+                                                    cycle.initialBuildState?.compiledSuccessfully && 
+                                                    cycle.initialTestResults?.failedTests.length === 0 && 
+                                                    cycle.initialTestResults?.erroredTests.length === 0)
+                                                        ? cycle.initialTestResults?.passedTests.length
+                                                        : cycle.finalTestResults?.passedTests.length || 0}/${getTotalTests(cycle)} tests`
                                             ) : (
                                                 <LoadingDots />
                                             )}
@@ -331,112 +383,119 @@ export const CycleDetails: React.FC<CycleDetailsProps> = ({
                                                         </div>
                                                     </DetailSection>
 
-                                                    <DetailSection 
-                                                        title="Changes"
-                                                        headerActions={
-                                                            <div style={{ display: 'flex', gap: '16px' }}>
-                                                                <ViewLogsLink 
-                                                                    label="Request"
-                                                                    onClick={() => {
-                                                                        console.log('Clicking request log for cycle:', cycle.cycleNumber);
-                                                                        if (!vscodeApi) {
-                                                                            console.error('VS Code API not available for request log');
-                                                                            return;
-                                                                        }
-                                                                        const message = {
-                                                                            command: 'viewGenerationLog',
-                                                                            type: 'viewGenerationLog',
-                                                                            cycleNumber: cycle.cycleNumber,
-                                                                            logType: 'request'
-                                                                        };
-                                                                        console.log('Sending message:', message);
-                                                                        try {
-                                                                            vscodeApi.postMessage(message);
-                                                                            console.log('Message sent successfully');
-                                                                        } catch (error) {
-                                                                            console.error('Failed to send message:', error);
-                                                                        }
-                                                                    }} 
-                                                                />
-                                                                <ViewLogsLink 
-                                                                    label="Response"
-                                                                    onClick={() => {
-                                                                        console.log('Clicking response log for cycle:', cycle.cycleNumber);
-                                                                        if (!vscodeApi) {
-                                                                            console.error('VS Code API not available for response log');
-                                                                            return;
-                                                                        }
-                                                                        const message = {
-                                                                            command: 'viewGenerationLog',
-                                                                            type: 'viewGenerationLog',
-                                                                            cycleNumber: cycle.cycleNumber,
-                                                                            logType: 'response'
-                                                                        };
-                                                                        console.log('Sending message:', message);
-                                                                        try {
-                                                                            vscodeApi.postMessage(message);
-                                                                            console.log('Message sent successfully');
-                                                                        } catch (error) {
-                                                                            console.error('Failed to send message:', error);
-                                                                        }
-                                                                    }} 
-                                                                />
-                                                            </div>
-                                                        }
-                                                    >
-                                                        <CodeChanges
-                                                            changes={[
-                                                                ...(cycle.codeChanges?.modifiedFiles || []).map(file => ({
-                                                                    filePath: file,
-                                                                    changeType: 'modify' as const,
-                                                                })),
-                                                                ...(cycle.codeChanges?.newFiles || []).map(file => ({
-                                                                    filePath: file,
-                                                                    changeType: 'add' as const,
-                                                                }))
-                                                            ]}
-                                                            cycleNumber={cycle.cycleNumber}
-                                                            hideHeader
-                                                        />
-                                                    </DetailSection>
-
-                                                    <DetailSection title="Final State">
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                            <SectionRow 
-                                                                title="Build Status"
-                                                                success={cycle.finalBuildState?.compiledSuccessfully}
-                                                                loading={!cycle.finalBuildState}
-                                                                onViewLogs={() => {
-                                                                    vscode?.postMessage({
-                                                                        type: 'viewCompilationLog',
-                                                                        cycleNumber: cycle.cycleNumber,
-                                                                        isFinal: true
-                                                                    });
-                                                                }}
+                                                    {(!cycle.initialBuildState?.compiledSuccessfully || 
+                                                      cycle.initialTestResults?.failedTests.length > 0 || 
+                                                      cycle.initialTestResults?.erroredTests.length > 0 || 
+                                                      cycle.wasForced) && (
+                                                        <>
+                                                            <DetailSection 
+                                                                title="Changes"
+                                                                headerActions={
+                                                                    <div style={{ display: 'flex', gap: '16px' }}>
+                                                                        <ViewLogsLink 
+                                                                            label="Request"
+                                                                            onClick={() => {
+                                                                                console.log('Clicking request log for cycle:', cycle.cycleNumber);
+                                                                                if (!vscodeApi) {
+                                                                                    console.error('VS Code API not available for request log');
+                                                                                    return;
+                                                                                }
+                                                                                const message = {
+                                                                                    command: 'viewGenerationLog',
+                                                                                    type: 'viewGenerationLog',
+                                                                                    cycleNumber: cycle.cycleNumber,
+                                                                                    logType: 'request'
+                                                                                };
+                                                                                console.log('Sending message:', message);
+                                                                                try {
+                                                                                    vscodeApi.postMessage(message);
+                                                                                    console.log('Message sent successfully');
+                                                                                } catch (error) {
+                                                                                    console.error('Failed to send message:', error);
+                                                                                }
+                                                                            }} 
+                                                                        />
+                                                                        <ViewLogsLink 
+                                                                            label="Response"
+                                                                            onClick={() => {
+                                                                                console.log('Clicking response log for cycle:', cycle.cycleNumber);
+                                                                                if (!vscodeApi) {
+                                                                                    console.error('VS Code API not available for response log');
+                                                                                    return;
+                                                                                }
+                                                                                const message = {
+                                                                                    command: 'viewGenerationLog',
+                                                                                    type: 'viewGenerationLog',
+                                                                                    cycleNumber: cycle.cycleNumber,
+                                                                                    logType: 'response'
+                                                                                };
+                                                                                console.log('Sending message:', message);
+                                                                                try {
+                                                                                    vscodeApi.postMessage(message);
+                                                                                    console.log('Message sent successfully');
+                                                                                } catch (error) {
+                                                                                    console.error('Failed to send message:', error);
+                                                                                }
+                                                                            }} 
+                                                                        />
+                                                                    </div>
+                                                                }
                                                             >
-                                                                <></>
-                                                            </SectionRow>
-                                                            <SectionRow 
-                                                                title="Test Results"
-                                                                success={cycle.finalTestResults?.failedTests.length === 0 && cycle.finalTestResults?.erroredTests.length === 0}
-                                                                onViewLogs={() => {
-                                                                    vscode?.postMessage({
-                                                                        type: 'viewTestLog',
-                                                                        cycleNumber: cycle.cycleNumber,
-                                                                        isFinal: true
-                                                                    });
-                                                                }}
-                                                            >
-                                                                <TestResults
-                                                                    passedTests={cycle.finalTestResults?.passedTests || []}
-                                                                    failedTests={cycle.finalTestResults?.failedTests || []}
-                                                                    erroredTests={cycle.finalTestResults?.erroredTests || []}
-                                                                    isLoading={false}
+                                                                <CodeChanges
+                                                                    changes={[
+                                                                        ...(cycle.codeChanges?.modifiedFiles || []).map(file => ({
+                                                                            filePath: file,
+                                                                            changeType: 'modify' as const,
+                                                                        })),
+                                                                        ...(cycle.codeChanges?.newFiles || []).map(file => ({
+                                                                            filePath: file,
+                                                                            changeType: 'add' as const,
+                                                                        }))
+                                                                    ]}
+                                                                    cycleNumber={cycle.cycleNumber}
                                                                     hideHeader
                                                                 />
-                                                            </SectionRow>
-                                                        </div>
-                                                    </DetailSection>
+                                                            </DetailSection>
+
+                                                            <DetailSection title="Final State">
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                    <SectionRow 
+                                                                        title="Build Status"
+                                                                        success={cycle.finalBuildState?.compiledSuccessfully}
+                                                                        loading={!cycle.finalBuildState}
+                                                                        onViewLogs={() => {
+                                                                            vscodeApi?.postMessage({
+                                                                                type: 'viewCompilationLog',
+                                                                                cycleNumber: cycle.cycleNumber,
+                                                                                isFinal: true
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <></>
+                                                                    </SectionRow>
+                                                                    <SectionRow 
+                                                                        title="Test Results"
+                                                                        success={cycle.finalTestResults?.failedTests.length === 0 && cycle.finalTestResults?.erroredTests.length === 0}
+                                                                        onViewLogs={() => {
+                                                                            vscode?.postMessage({
+                                                                                type: 'viewTestLog',
+                                                                                cycleNumber: cycle.cycleNumber,
+                                                                                isFinal: true
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <TestResults
+                                                                            passedTests={cycle.finalTestResults?.passedTests || []}
+                                                                            failedTests={cycle.finalTestResults?.failedTests || []}
+                                                                            erroredTests={cycle.finalTestResults?.erroredTests || []}
+                                                                            isLoading={false}
+                                                                            hideHeader
+                                                                        />
+                                                                    </SectionRow>
+                                                                </div>
+                                                            </DetailSection>
+                                                        </>
+                                                    )}
 
                                                     <DetailSection title="Timing Details">
                                                         <TimingDetails 

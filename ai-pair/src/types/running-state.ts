@@ -50,6 +50,7 @@ interface GenerationCycleDetails {
     finalTestResults: TestResults;
     codeChanges: CodeChangeSummary;
     timings: CycleTimings;
+    wasForced: boolean;
 }
 
 enum Status {
@@ -67,7 +68,6 @@ class RunningState {
     private _listeners: ((state: RunningState) => void)[] = [];
     private _status: Status;
     private _accumulatedHints: string[] = [];
-    private _lastRunOutput: string = "";
     private _testResults: TestResults;
     private _buildState: BuildState;
     private _codeChanges: CodeChangeSummary;
@@ -119,15 +119,6 @@ class RunningState {
         return this._generationCycleDetails;
     }
 
-    get lastRunOutput(): string {
-        return this._lastRunOutput;
-    }
-
-    set lastRunOutput(value: string) {
-        this._lastRunOutput = value;
-        this.notifyListeners();
-    }
-
     get testResults(): TestResults {
         return this._testResults;
     }
@@ -177,7 +168,7 @@ class RunningState {
         return this._currentCycleIndex >= 0 ? this._generationCycleDetails[this._currentCycleIndex] : null;
     }
 
-    startNewCycle(model: string): void {
+    startNewCycle(model: string, wasForced: boolean = false): void {
         const newCycle: GenerationCycleDetails = {
             cycleNumber: this._generationCycleDetails.length + 1,
             model,
@@ -197,7 +188,8 @@ class RunningState {
                 codeGenerationEndTime: 0,
                 retestingStartTime: 0,
                 retestingEndTime: 0
-            }
+            },
+            wasForced
         };
         this._generationCycleDetails.push(newCycle);
         this._currentCycleIndex = this._generationCycleDetails.length - 1;
@@ -246,7 +238,6 @@ class RunningState {
     resetState(): void {
         this._status = Status.IDLE;
         this._accumulatedHints = [];
-        this._lastRunOutput = "";
         this._testResults = {
             testsPassed: false,
             failedTests: [],
@@ -290,14 +281,12 @@ class RunningState {
             compilationErrors: [],
             logFile: "",
         };
-        this._lastRunOutput = "";
         this.notifyListeners();
     }
 
     reset(): void {
         this._status = Status.IDLE;
         this._accumulatedHints = [];
-        this._lastRunOutput = "";
         this._testResults = {
             testsPassed: false,
             failedTests: [],

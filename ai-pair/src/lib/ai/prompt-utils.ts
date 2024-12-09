@@ -1,74 +1,105 @@
 import { Config } from '../../types/config';
 import { RunningState } from '../../types/running-state';
 import * as fs from 'fs';
-import { joinPaths } from '../utils/file-utils';
+import { joinPaths } from '../file-utils';
 
-function constructPrompt(config: Config, runningState: RunningState, filesContent: string, buildGradleContent: string): string {
-    let prompt;
+/**
+ * Constructs a prompt based on the test results and configuration.
+ */
+function constructPrompt(
+    config: Config,
+    runningState: RunningState,
+    filesContent: string,
+    buildGradleContent: string
+): string {
+    const { testResults, accumulatedHints } = runningState;
+    const testsPassed = testResults.failedTests.length === 0 && testResults.erroredTests.length === 0;
 
-    if (runningState.testResults.testsPassed) {
-        console.log('Tests passed, using noIssuePromptTemplate');
-        prompt = config.noIssuePromptTemplate
-            .replace('{filesContent}', filesContent)
-            .replace('{buildGradleContent}', buildGradleContent);
+    // Choose the appropriate prompt template
+    const template = testsPassed
+        ? config.noIssuePromptTemplate
+        : config.promptTemplate;
 
-        if (runningState.accumulatedHints.length > 0) {
-            console.log(`Adding ${runningState.accumulatedHints.length} hints to prompt`);
-            prompt += `\n\nUser hints: ${runningState.accumulatedHints.join('; ')}`;
-        }
-    } else {
-        console.log('Tests failed, using promptTemplate');
-        prompt = config.promptTemplate
-            .replace('{testOutput}', runningState.lastRunOutput)
-            .replace('{filesContent}', filesContent)
-            .replace('{buildGradleContent}', buildGradleContent);
+    let prompt = template
+        .replace('{filesContent}', filesContent)
+        .replace('{buildGradleContent}', buildGradleContent);
 
-        if (runningState.accumulatedHints.length > 0) {
-            console.log(`Adding ${runningState.accumulatedHints.length} hints to prompt`);
-            prompt += `\n\nHints for improvement: ${runningState.accumulatedHints.join('; ')}`;
-        }
+    if (!testsPassed) {
+        prompt = prompt.replace('{testOutput}', 'No test output available');
+    }
+
+    // Append hints if available
+    if (accumulatedHints.length > 0) {
+        const hintsText = accumulatedHints.join('; ');
+        const hintsSection = testsPassed
+            ? `\n\nUser hints: ${hintsText}`
+            : `\n\nHints for improvement: ${hintsText}`;
+        prompt += hintsSection;
     }
 
     return prompt;
 }
 
-function loadPrompts(promptsPath: string): { 
-    systemPrompt: string; 
-    promptTemplate: string; 
-    noIssuePromptTemplate: string; 
+/**
+ * Loads all necessary prompt templates from the given directory.
+ */
+function loadPrompts(promptsPath: string): {
+    systemPrompt: string;
+    promptTemplate: string;
+    noIssuePromptTemplate: string;
 } {
-    console.log(`Loading prompts from directory: ${promptsPath}`);
+    logInfo(`Loading prompts from directory: ${promptsPath}`);
+
     try {
         const prompts = {
             systemPrompt: loadPromptFile(promptsPath, 'system_prompt.txt'),
             promptTemplate: loadPromptFile(promptsPath, 'prompt_template.txt'),
-            noIssuePromptTemplate: loadPromptFile(promptsPath, 'no_issue_prompt_template.txt')
+            noIssuePromptTemplate: loadPromptFile(promptsPath, 'no_issue_prompt_template.txt'),
         };
-        console.log('Successfully loaded all prompt files');
+
+        logInfo('Successfully loaded all prompt files.');
         return prompts;
     } catch (error) {
-        console.log(`Failed to load prompts: ${error}`);
+        logError(`Failed to load prompts: ${(error as Error).message}`);
         throw error;
     }
 }
 
+/**
+ * Loads a single prompt file from the specified directory.
+ */
 function loadPromptFile(promptsPath: string, fileName: string): string {
     const filePath = joinPaths(promptsPath, fileName);
-    console.log(`Loading prompt file: ${filePath}`);
-    
+    logInfo(`Loading prompt file: ${filePath}`);
+
     if (!fs.existsSync(filePath)) {
-        console.log(`Prompt file not found: ${filePath}`);
-        throw new Error(`Prompt file not found at path: ${filePath}`);
+        const errorMessage = `Prompt file not found at path: ${filePath}`;
+        logError(errorMessage);
+        throw new Error(errorMessage);
     }
-    
+
     try {
         const content = fs.readFileSync(filePath, 'utf-8');
-        console.log(`Successfully loaded ${fileName} (${content.length} characters)`);
+        logInfo(`Successfully loaded ${fileName} (${content.length} characters).`);
         return content;
     } catch (error) {
-        console.log(`Error reading prompt file ${fileName}: ${error}`);
+        logError(`Error reading prompt file ${fileName}: ${(error as Error).message}`);
         throw error;
     }
+}
+
+/**
+ * Logs informational messages.
+ */
+function logInfo(message: string): void {
+    console.log(`[INFO] ${message}`);
+}
+
+/**
+ * Logs error messages.
+ */
+function logError(message: string): void {
+    console.error(`[ERROR] ${message}`);
 }
 
 export { loadPrompts, constructPrompt };

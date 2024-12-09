@@ -18,7 +18,7 @@ export class ClaudeClient extends BaseAIClient {
     }
 
     async generateResponse(prompt: string, systemPrompt: string): Promise<string> {
-        const timestamp = this.logRequest(prompt);
+        const timestamp = this.logRequest(prompt, systemPrompt);
 
         try {
             const response = await axios.post<ApiResponse>(

@@ -1,19 +1,11 @@
+import { Config, GenerationCycleDetails, RunningState } from 'ai-pair';
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import { vscodeStyles as styles } from './styles';
-import { componentStyles } from './styles/components';
-import { StatusBar } from './components/StatusBar';
-import { BuildState } from './components/BuildState';
-import { TestResults } from './components/TestResults';
-import { CodeChanges, FileChange } from './components/CodeChanges';
-import { LogViewer } from './components/LogViewer';
-import { Status, RunningState, Config } from 'ai-pair';
 import { CycleDetails } from './components/CycleDetails';
-import { GenerationCycleDetails } from '../types/running-state';
+import { LogViewer } from './components/LogViewer';
+import { StatusBar } from './components/StatusBar';
 import { WelcomeComponent } from './components/WelcomeComponent';
-import { TimingDetails } from './components/TimingDetails';
 import { getVSCodeAPI } from './vscodeApi';
-import path from 'path';
 
 export const Sidebar: React.FC = () => {
     // Get vscode API using React.useMemo to ensure it's only created once
@@ -27,6 +19,7 @@ export const Sidebar: React.FC = () => {
         const state = vscodeApi?.getState();
         return state?.config || null;
     });
+    const [forceGeneration, setForceGeneration] = React.useState(false);
     const [logs, setLogs] = React.useState<string[]>(() => {
         const state = vscodeApi?.getState();
         return state?.logs || [];
@@ -110,7 +103,10 @@ export const Sidebar: React.FC = () => {
     };
 
     const handleStart = () => {
-        vscodeApi?.postMessage({ type: 'startAIPair' });
+        vscodeApi?.postMessage({ 
+            type: 'startAIPair',
+            forceGeneration 
+        });
     };
 
     const handleStop = () => {
@@ -123,6 +119,10 @@ export const Sidebar: React.FC = () => {
             key: 'autoWatch',
             value: !config?.autoWatch
         });
+    };
+
+    const toggleForce = () => {
+        setForceGeneration(!forceGeneration);
     };
 
     const handleCycleSelect = (cycle: GenerationCycleDetails) => {
@@ -162,7 +162,9 @@ export const Sidebar: React.FC = () => {
             <StatusBar
                 status={runningState?.status || 'idle'}
                 config={config}
+                forceGeneration={forceGeneration}
                 onToggleWatch={toggleWatch}
+                onToggleForce={toggleForce}
                 onOpenSettings={openSettings}
                 onStart={handleStart}
                 onStop={handleStop}
@@ -175,6 +177,65 @@ export const Sidebar: React.FC = () => {
                 />
             ) : (
                 <>
+                    <div style={{ 
+                        padding: '8px',
+                        display: 'flex',
+                        gap: '8px',
+                        borderBottom: '1px solid var(--vscode-panel-border)'
+                    }}>
+                        <input
+                            type="text"
+                            placeholder="Enter a hint..."
+                            style={{
+                                flex: 1,
+                                padding: '4px 8px',
+                                backgroundColor: 'var(--vscode-input-background)',
+                                color: 'var(--vscode-input-foreground)',
+                                border: '1px solid var(--vscode-input-border)',
+                                borderRadius: '2px',
+                                fontSize: '12px'
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    const input = e.target as HTMLInputElement;
+                                    if (input.value.trim()) {
+                                        vscodeApi?.postMessage({
+                                            type: 'startWithHint',
+                                            hint: input.value.trim(),
+                                            force: true
+                                        });
+                                        input.value = '';
+                                    }
+                                }
+                            }}
+                        />
+                        <button
+                            style={{
+                                padding: '4px 8px',
+                                backgroundColor: 'var(--vscode-button-background)',
+                                color: 'var(--vscode-button-foreground)',
+                                border: 'none',
+                                borderRadius: '2px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                whiteSpace: 'nowrap'
+                            }}
+                            onClick={(e) => {
+                                const input = e.currentTarget.previousSibling as HTMLInputElement;
+                                if (input.value.trim()) {
+                                    vscodeApi?.postMessage({
+                                        type: 'startWithHint',
+                                        hint: input.value.trim(),
+                                        force: true
+                                    });
+                                    input.value = '';
+                                }
+                            }}
+                        >
+                            Generate with Hint
+                        </button>
+                    </div>
+
                     <CycleDetails
                         cycles={runningState.generationCycleDetails}
                         selectedCycle={selectedCycle}

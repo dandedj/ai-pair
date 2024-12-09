@@ -96,11 +96,6 @@ class AIPair {
     }
 
     async performCodeGenerationCycle(force = false): Promise<boolean> {
-        const lastRunOutputPath = path.join(this.config.tmpDir, 'last-run-output.log');
-        
-        if (fs.existsSync(lastRunOutputPath)) {
-            fs.unlinkSync(lastRunOutputPath);
-        }
 
         this.runningState.resetCycleState();
         this.logger.debug(`Starting new cycle with model: ${this.config.model}`);
@@ -118,6 +113,7 @@ class AIPair {
 
         if (buildSuccess && this.runningState.currentCycle?.initialTestResults.testsPassed) {
             this.logger.info('Project compiles and all tests passed! No changes needed.');
+            this.runningState.status = Status.COMPLETED;
             this.runningState.endCurrentCycle();
             return true;
         }
@@ -131,12 +127,12 @@ class AIPair {
         // TODO: handle both build.gradle and build.gradle.kts and other build file types
         const buildGradleContent = fs.readFileSync(path.join(this.config.projectRoot, 'build.gradle.kts'), 'utf8');
 
-        const codeFiles = collectFilesWithExtension(
+        const codeFiles = await collectFilesWithExtension(
             [path.join(this.config.projectRoot, 'src/main')],
             this.config.extension
         );
 
-        const testFiles = collectTestFiles(force, this.config);
+        const testFiles = await collectTestFiles(force, this.config);
 
         this.logger.debug(
             `${codeFiles.length} code files and ${testFiles.length} test files will be used for code generation`
@@ -175,6 +171,7 @@ class AIPair {
             this.runningState.buildState.compiledSuccessfully && 
             this.runningState.testResults.testsPassed) {
             this.runningState.endCurrentCycle();
+            this.runningState.status = Status.COMPLETED;
             return true;
         }
 
@@ -185,6 +182,7 @@ class AIPair {
         const finalBuildSuccess = await buildProject(this.config, this.runningState, true);
         if (!finalBuildSuccess) {
             this.logger.info('Final build failed!');
+            this.runningState.status = Status.COMPLETED;
             return false;
         }
 
@@ -194,10 +192,6 @@ class AIPair {
         this.runningState.updateTimings('retestingEndTime', false);
 
         this.logger.debug(`Tests passed: ${this.runningState.currentCycle?.finalTestResults.testsPassed}`);
-
-        if (!this.runningState.currentCycle?.finalTestResults.testsPassed) {
-            this.logger.debug(`Last run output: ${this.runningState.lastRunOutput}`);
-        }
 
         this.runningState.status = Status.COMPLETED;
         this.runningState.endCurrentCycle();

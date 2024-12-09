@@ -6,7 +6,7 @@ export class StatusBarManager {
 
     constructor() {
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
-        this.statusBarItem.command = 'ai-pair-extension.showConfig';
+        this.statusBarItem.command = 'ai-pair-extension.configView';
         this.statusBarItem.show();
     }
 
@@ -27,13 +27,13 @@ export class StatusBarManager {
 
         if (state.status === Status.IDLE) {
             this.statusBarItem.text = "$(debug-start) Start AI Pair";
-            this.statusBarItem.command = 'ai-pair.startAIPair';
+            this.statusBarItem.command = 'ai-pair-extension.configView';
         } else if (state.status === Status.COMPLETED) {
             this.statusBarItem.text = `$(check) Tests Passed: ${passedTests}/${totalTests}`;
-            this.statusBarItem.command = 'ai-pair.stopAIPair';
+            this.statusBarItem.command = 'ai-pair-extension.configView';
         } else {
             this.statusBarItem.text = `$(sync~spin) ${this.getStatusText(state.status)} (${passedTests}/${totalTests})`;
-            this.statusBarItem.command = 'ai-pair.stopAIPair';
+            this.statusBarItem.command = 'ai-pair-extension.configView';
         }
 
         this.statusBarItem.show();

@@ -2,13 +2,13 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { AIPair, RunningState, Config, Status, TestResults, BuildState, GenerationCycleDetails } from 'ai-pair';
 import { ExtensionLogger } from './ExtensionLogger';
-import * as fs from 'fs';
+import { promises as fs } from 'fs';
+import { existsSync, statSync } from 'fs';
 
 type SerializedRunningState = {
     status: Status;
     accumulatedHints: string[];
     generationCycleDetails: GenerationCycleDetails[];
-    lastRunOutput: string;
     testResults: TestResults;
     buildState: BuildState;
     cycleStartTime: string | null;
@@ -109,7 +109,6 @@ export class AIPairService {
             status: this._runningState.status,
             accumulatedHints: this._runningState.accumulatedHints,
             generationCycleDetails: this._runningState.generationCycleDetails,
-            lastRunOutput: this._runningState.lastRunOutput,
             testResults: this._runningState.testResults,
             buildState: this._runningState.buildState,
             codeChanges: {
@@ -194,17 +193,17 @@ export class AIPairService {
 
     private async readNewLogs(): Promise<string[]> {
         try {
-            if (!fs.existsSync(this._logPath)) {
+            if (!existsSync(this._logPath)) {
                 return [];
             }
 
-            const stats = fs.statSync(this._logPath);
+            const stats = statSync(this._logPath);
             if (stats.size < this._lastLogPosition) {
                 // Log file was truncated, reset position
                 this._lastLogPosition = 0;
             }
 
-            const fileHandle = await fs.promises.open(this._logPath, 'r');
+            const fileHandle = await fs.open(this._logPath, 'r');
             const buffer = Buffer.alloc(stats.size - this._lastLogPosition);
             
             await fileHandle.read(buffer, 0, buffer.length, this._lastLogPosition);
@@ -245,7 +244,7 @@ export class AIPairService {
                     `${message.logType}.log`
                 );
                 console.log('AIPairService: Attempting to open log file:', logPath);
-                if (fs.existsSync(logPath)) {
+                if (existsSync(logPath)) {
                     console.log('AIPairService: Log file exists, opening...');
                     await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(logPath));
                 } else {
@@ -260,7 +259,7 @@ export class AIPairService {
                     `generationCycle${message.cycleNumber}`,
                     message.isFinal ? 'final_build_result.log' : 'initial_build_result.log'
                 );
-                if (fs.existsSync(logPath)) {
+                if (existsSync(logPath)) {
                     await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(logPath));
                 } else {
                     vscode.window.showErrorMessage(`Log file not found: ${logPath}`);
@@ -273,7 +272,7 @@ export class AIPairService {
                     `generationCycle${message.cycleNumber}`,
                     message.isFinal ? 'final_test_result.log' : 'initial_test_result.log'
                 );
-                if (fs.existsSync(logPath)) {
+                if (existsSync(logPath)) {
                     await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(logPath));
                 } else {
                     vscode.window.showErrorMessage(`Log file not found: ${logPath}`);
@@ -311,7 +310,7 @@ export class AIPairService {
                     message.filePath
                 );
                 
-                if (fs.existsSync(modifiedPath)) {
+                if (existsSync(modifiedPath)) {
                     const title = `Changes to ${message.filePath} (Cycle ${message.cycleNumber})`;
                     await vscode.commands.executeCommand('vscode.diff',
                         vscode.Uri.file(originalPath),
