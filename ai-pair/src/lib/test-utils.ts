@@ -23,12 +23,12 @@ function getBuildCommand(config: Config): BuildCommand {
             if (fs.existsSync(path.join(config.projectRoot, 'build.gradle.kts'))) {
                 return {
                     command: process.platform === 'win32' ? 'gradlew.bat' : './gradlew',
-                    args: ['clean', 'build', '-x', 'test', '--stacktrace']
+                    args: ['clean', 'build']
                 };
             } else if (fs.existsSync(path.join(config.projectRoot, 'build.gradle'))) {
                 return {
                     command: process.platform === 'win32' ? 'gradlew.bat' : './gradlew',
-                    args: ['clean', 'build', '-x', 'test', '--stacktrace']
+                    args: ['clean', 'build']
                 };
             } else {
                 return {
@@ -54,7 +54,7 @@ function getTestCommand(config: Config): BuildCommand {
                 fs.existsSync(path.join(config.projectRoot, 'build.gradle'))) {
                 return {
                     command: process.platform === 'win32' ? 'gradlew.bat' : './gradlew',
-                    args: ['test', '--stacktrace']
+                    args: ['test']
                 };
             } else {
                 return {
@@ -95,11 +95,9 @@ export async function buildProject(config: Config, runningState: RunningState, i
                 fs.writeFileSync(logFile, output);
 
                 const buildState = {
-                    compiledSuccessfully: code === 0,
+                    compiledSuccessfully: code === 0 && !output.includes('BUILD FAILED'),
                     compilerOutput: output,
-                    compilerErrors: [],
                     lastCompileTime: new Date(),
-                    compilationErrors: code === 0 ? [] : [output],
                     logFile
                 };
 
@@ -122,9 +120,7 @@ export async function buildProject(config: Config, runningState: RunningState, i
         const buildState = {
             compiledSuccessfully: false,
             compilerOutput: errorMessage,
-            compilerErrors: [],
             lastCompileTime: new Date(),
-            compilationErrors: [errorMessage],
             logFile: ''
         };
 
@@ -189,8 +185,7 @@ export async function runTests(config: Config, runningState: RunningState, isFin
             testsPassed: false,
             passedTests: [],
             failedTests: [],
-            erroredTests: [errorMessage],
-            lastRunTime: new Date()
+            erroredTests: [errorMessage]
         };
         if (runningState.currentCycle) {
             if (isFinalResults) {
@@ -257,8 +252,7 @@ export function processTestResults(config: Config): TestResults {
         testsPassed: true,
         passedTests: [],
         failedTests: [],
-        erroredTests: [],
-        lastRunTime: new Date()
+        erroredTests: []
     };
 
     if (!fs.existsSync(testReportPath)) {

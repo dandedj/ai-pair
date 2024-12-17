@@ -1,0 +1,62 @@
+## Instructions for Developers
+
+1. Never remove code unless specifically asked to do so.
+2. Never work on code that is not part of the specific request. 
+3. When writing react unit tests, always put them in the same directory as the component they are testing.
+4. Use the following design document as a guide for the extension:
+
+# Design Document
+The AI Pair Programmer Extension streamlines your development process by emphasizing code quality and providing flexible, user-friendly features for enhanced productivity
+
+## Overview
+
+This extension is a VS Code extension that allows you to use the AI Pair Programmer extension to pair program with AI.
+
+## Features
+
+AI pair is designed to be pair programmer that will use your test suite to generate code changes. Typical AI tools will generate code that may not pass your tests. AI pair will generate code that passes your tests.
+
+## How to use
+
+1. Open a folder in VS Code
+2. Open the AI Pair extension
+3. Click the Play button to start a new pair programming session (or alternatively you can use the `ai-pair.start` command from the vscode command palette)
+
+The extension will run a number of cycles to generate code changes. Each cycle will several phases: `Building`, `Testing`, `Generating Code`, `Rebuilding`, `Retesting`, and `Completed` (in those orders).
+
+At any point in the cycle you can click the `Stop` button to stop the cycle. It will finish the current phase and then stop.
+
+On each cycle, the extension will first build and test to see if any changes are needed. If the build or tests fail, it will generate code changes to fix the build or tests. It will then rebuild and retest until the build and tests pass.
+
+If the build and tests pass then it will stop the cycle.
+
+The extension will continue to run cycles until it reaches the maximum number of retries or the build and tests pass. Retries can be configured in the settings.
+
+## Viewing the results
+
+You can see the progress and results of the AI Pair programmer by opening the sidebar. The sidebar shows a table where each cycle is represented as a row. You can expand any cycle to see the results from that cycle. When a cycle is expanded, you can see the results from each phase of the cycle including the compilation state, test results, code changes, and timing details.
+
+You can also view the logs for parts of a cycle by clicking the `View Logs` link in the cycle details for the phase you are interested in. This will open a new tab with the logs for the cycle.
+
+## Choosing the model
+
+The extension will use the model you have selected in the settings. You can change the model by clicking the `Settings` button in the extension or by navigating to the `AI Pair Settings` section in the VS Code settings.
+
+The extension supports most popular models including OpenAI, Anthropic, and Google. The extension requires a `apiKey` for the model you are using. You can get an API key from the model provider's website.
+
+## Forcing
+
+Even if the build and tests pass, you can force the extension to generate code changes by entering a hint in the `Generate Code` section. This will generate code changes (using your hint as a guide) and then rebuild and retest until the build and tests pass.
+
+## Escalation
+
+The extension can be configured to escalate to a more expensive model on the last cycle. This can be helpful if other models have failed to generate code that passes the tests.
+
+## Design Principles
+
+1. Keep the code simple and easy to understand.
+2. Keep the code modular and easy to extend.
+3. Keep the code performant.
+4. Keep the code easy to test.
+5. The webview code should never use dependencies that are not intended for webviews (fs, child_process, etc.)
+

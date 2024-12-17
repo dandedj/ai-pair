@@ -7,9 +7,9 @@ import { parseAndApplyGeneratedCode } from './lib/code-parser';
 import { loadPrompts } from './lib/ai/prompt-utils';
 import { clearDirectory, collectFilesWithExtension } from './lib/file-utils';
 import { Config } from './types/config';
-import { RunningState, Status, TestResults, BuildState } from './types/running-state';
+import { RunningState, Status, TestResults, BuildState, getStatusDisplay } from './types/running-state';
 
 export {
     AIPair, AIClientFactory, ChatGPTClient, loadPrompts, TestResults, BuildState, GenerationCycleDetails,
-    ClaudeClient, clearDirectory, CodeFile, collectFilesWithExtension, Config, GeminiClient, parseAndApplyGeneratedCode, RunningState, Status
+    ClaudeClient, clearDirectory, CodeFile, collectFilesWithExtension, Config, GeminiClient, parseAndApplyGeneratedCode, RunningState, Status, getStatusDisplay
 };

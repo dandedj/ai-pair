@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { componentStyles } from '../styles/components';
-import { LoadingDots } from './LoadingDots';
-import { getVSCodeAPI } from '../vscodeApi';
+import { componentStyles } from '../../styles/components';
+import { getVSCodeAPI } from '../../vscodeApi';
+import { ViewLogsLink } from '../common/ViewLogsLink';
 
 export interface FileChange {
     filePath: string;
@@ -14,31 +14,18 @@ export interface CodeChangesProps {
         filePath: string;
         changeType: 'add' | 'modify' | 'delete';
     }>;
-    hideHeader?: boolean;
     onViewDiff?: (filePath: string) => void;
-    isLoading?: boolean;
-    logFile?: string;
-    onViewLog?: (logFile: string) => void;
+    onViewLog?: () => void;
     cycleNumber?: number;
 }
 
-export const CodeChanges: React.FC<CodeChangesProps> = ({ 
-    changes, 
-    hideHeader, 
-    onViewDiff, 
-    isLoading = false,
-    logFile,
-    onViewLog,
+export const CodeChanges: React.FC<CodeChangesProps> = ({
+    changes,
+    onViewDiff,
     cycleNumber
 }) => {
     // Get vscode API using React.useMemo to ensure it's only created once
     const vscodeApi = React.useMemo(() => getVSCodeAPI(), []);
-
-    const handleViewLog = () => {
-        if (logFile && onViewLog) {
-            onViewLog(logFile);
-        }
-    };
 
     const handleViewDiff = (filePath: string) => {
         if (onViewDiff) {
@@ -66,22 +53,18 @@ export const CodeChanges: React.FC<CodeChangesProps> = ({
 
     return (
         <div>
-            {!hideHeader && (
-                <div style={componentStyles.panelHeader}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <h3 style={componentStyles.panelTitle}>Code Changes</h3>
-                        {logFile && (
-                            <button 
-                                onClick={handleViewLog}
-                                style={componentStyles.linkButton}
-                            >
-                                View Logs
-                            </button>
-                        )}
-                    </div>
-                    <span style={componentStyles.badge}>{changes.length}</span>
+            <div style={componentStyles.panelHeader}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={componentStyles.panelTitle}>Code Changes</h3>
+                    <ViewLogsLink
+                        label="View Logs"
+                        cycleNumber={cycleNumber}
+                        logType="generation"
+                        stage="request"
+                    />
                 </div>
-            )}
+                <span style={componentStyles.badge}>{changes.length}</span>
+            </div>
             {changes.length > 0 && (
                 <div style={componentStyles.tableContainer}>
                     <table style={componentStyles.table}>

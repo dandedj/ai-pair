@@ -17,7 +17,8 @@
 		"moduleResolution": "node",
 		"baseUrl": ".",
 		"paths": {
-			"ai-pair": ["../ai-pair/dist"]
+			"ai-pair": ["../ai-pair/dist"],
+			"ai-pair/types": ["../ai-pair/dist/types"]
 		}
 	},
 	"include": [

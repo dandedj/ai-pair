@@ -1,17 +1,16 @@
 import * as React from 'react';
-import { componentStyles } from '../styles/components';
-import { LoadingDots } from './LoadingDots';
-
-const vscode = (window as any).vscode;
+import { componentStyles } from '../../styles/components';
+import { LoadingDots } from '../common/LoadingDots';
+import { LogViewer } from '../logging/LogViewer';
+import { ViewLogsLink } from '../common/ViewLogsLink';
 
 interface TestResultsProps {
     passedTests: string[];
     failedTests: string[];
     erroredTests: string[];
     isLoading: boolean;
-    hideHeader?: boolean;
-    logFile?: string;
-    onViewLog?: (logFile: string) => void;
+    cycleNumber: number;
+    isFinal: boolean;
 }
 
 export const TestResults: React.FC<TestResultsProps> = ({ 
@@ -19,44 +18,38 @@ export const TestResults: React.FC<TestResultsProps> = ({
     failedTests = [],
     erroredTests = [],
     isLoading = false,
-    hideHeader,
-    logFile,
-    onViewLog,
+    cycleNumber,
+    isFinal
 }) => {
     const totalTests = passedTests.length + failedTests.length + erroredTests.length;
-
-    const handleViewLog = () => {
-        if (logFile && onViewLog) {
-            onViewLog(logFile);
-        } else {
-            vscode.postMessage({ /* ... */ });
-        }
-    };
+    const allPassed = failedTests.length === 0 && erroredTests.length === 0;
 
     return (
         <div>
-            {!hideHeader && (
-                <div style={componentStyles.panelHeader}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <h3 style={componentStyles.panelTitle}>Test Results</h3>
-                        {logFile && (
-                            <button 
-                                onClick={handleViewLog}
-                                style={componentStyles.linkButton}
-                            >
-                                View Logs
-                            </button>
-                        )}
-                    </div>
-                    <span style={componentStyles.badge}>
-                        {isLoading ? '...' : `${passedTests.length}/${totalTests}`}
-                    </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isLoading ? (
+                        <>
+                            <LoadingDots label="Running tests" />
+                        </>
+                    ) : (
+                        <>
+                            <span className={`codicon codicon-${allPassed ? 'pass-filled' : 'error'}`} 
+                                  style={{ color: allPassed ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-testing-iconFailed)' }}
+                            />
+                            <span>Tests</span>
+                        </>
+                    )}
                 </div>
-            )}
-            <div style={componentStyles.tableContainer}>
-                {isLoading ? (
-                    <LoadingDots />
-                ) : (
+                <ViewLogsLink
+                    label="View Logs"
+                    cycleNumber={cycleNumber}
+                    logType="test"
+                    stage={isFinal ? 'final' : 'initial'}
+                />
+            </div>
+            {!isLoading && (
+                <div style={componentStyles.tableContainer}>
                     <table style={componentStyles.table}>
                         <tbody>
                             {passedTests.map((test, index) => (
@@ -79,8 +72,8 @@ export const TestResults: React.FC<TestResultsProps> = ({
                             ))}
                         </tbody>
                     </table>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 }; 

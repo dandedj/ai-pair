@@ -1,3 +1,4 @@
+
 interface CodeChangeSummary {
     lastChangeTime: Date | null;
     newFiles: string[];
@@ -11,16 +12,11 @@ interface TestResults {
     failedTests: string[];
     passedTests: string[];
     erroredTests: string[];
-    lastRunTime: Date | null;
 }
 
 interface BuildState {
     compiledSuccessfully: boolean;
     compilerOutput: string;
-    compilerErrors: string[];
-    lastCompileTime: Date;
-    compilationErrors: string[];
-    logFile: string;
 }
 
 interface CodeFile {
@@ -31,17 +27,20 @@ interface CodeFile {
 interface CycleTimings {
     cycleStartTime: number;
     cycleEndTime: number | null;
-    compilationStartTime: number;
-    compilationEndTime: number;
-    testingStartTime: number;
-    testingEndTime: number;
-    codeGenerationStartTime: number;
-    codeGenerationEndTime: number;
-    retestingStartTime: number;
-    retestingEndTime: number;
+    initialBuildStartTime: number | null;
+    initialBuildEndTime: number | null;
+    initialTestStartTime: number | null;
+    initialTestEndTime: number | null;
+    codeGenerationStartTime: number | null;
+    codeGenerationEndTime: number | null;
+    finalBuildStartTime: number | null;
+    finalBuildEndTime: number | null;
+    finalTestStartTime: number | null;
+    finalTestEndTime: number | null;
 }
 
 interface GenerationCycleDetails {
+    status: Status;
     cycleNumber: number;
     model: string;
     initialBuildState: BuildState;
@@ -54,44 +53,53 @@ interface GenerationCycleDetails {
 }
 
 enum Status {
-    IDLE = 'idle',
-    COMPILING = 'compiling',
-    TESTING = 'testing',
-    GENERATING_CODE = 'generating_code',
-    APPLYING_CHANGES = 'applying_changes',
-    RECOMPILING = 'recompiling',
-    RETESTING = 'retesting',
-    COMPLETED = 'completed',
+    IDLE = 0,
+    BUILDING = 1,
+    TESTING = 2,
+    GENERATING_CODE = 3,
+    APPLYING_CHANGES = 4,
+    REBUILDING = 5,
+    RETESTING = 6,
+    COMPLETED = 7
 }
 
-class RunningState {
-    private _listeners: ((state: RunningState) => void)[] = [];
-    private _status: Status;
-    private _accumulatedHints: string[] = [];
-    private _testResults: TestResults;
-    private _buildState: BuildState;
-    private _codeChanges: CodeChangeSummary;
-    private _cycleStartTime: Date | null = null;
-    private _currentCycleIndex: number = -1;
+export function getStatusDisplay(status: Status): string {
+    switch (status) {
+        case Status.IDLE: return 'idle';
+        case Status.BUILDING: return 'building';
+        case Status.TESTING: return 'testing';
+        case Status.GENERATING_CODE: return 'generating_code';
+        case Status.APPLYING_CHANGES: return 'applying_changes';
+        case Status.REBUILDING: return 'rebuilding';
+        case Status.RETESTING: return 'retesting';
+        case Status.COMPLETED: return 'completed';
+    }
+}
+
+export class RunningState {
+    private _status: Status = Status.IDLE;
     private _generationCycleDetails: GenerationCycleDetails[] = [];
+    private _currentCycle: GenerationCycleDetails | null = null;
+    private _changeListeners: ((state: RunningState) => void)[] = [];
+
+    private _buildState: BuildState;
+    private _testResults: TestResults;
+    private _codeChanges: CodeChangeSummary;
+    private _accumulatedHints: string[];
+    private _cycleStartTime: Date | null;
+    private _listeners: ((state: RunningState) => void)[] = [];
+    private _currentCycleIndex: number;
 
     constructor() {
-        this._status = Status.IDLE;
-        this._accumulatedHints = [];
-        this._testResults = {
-            testsPassed: false,
-            failedTests: [],
-            passedTests: [],
-            erroredTests: [],
-            lastRunTime: null,
-        };
         this._buildState = {
             compiledSuccessfully: false,
-            compilerOutput: "",
-            compilerErrors: [],
-            lastCompileTime: new Date(),
-            compilationErrors: [],
-            logFile: "",
+            compilerOutput: ""
+        };
+        this._testResults = {
+            passedTests: [],
+            failedTests: [],
+            erroredTests: [],
+            testsPassed: false,
         };
         this._codeChanges = {
             lastChangeTime: null,
@@ -100,19 +108,25 @@ class RunningState {
             modifiedFiles: [],
             buildFiles: [],
         };
+        this._accumulatedHints = [];
+        this._cycleStartTime = null;
+        this._changeListeners = [];
+        this._listeners = [];
+        this._currentCycleIndex = -1;
+    }
+
+    get currentCycle(): GenerationCycleDetails | null {
+        return this._generationCycleDetails.length > 0 
+            ? this._generationCycleDetails[this._generationCycleDetails.length - 1] 
+            : null;
+    }
+
+    get currentCycleIndex(): number {
+        return this._currentCycleIndex;
     }
 
     get status(): Status {
-        return this._status;
-    }
-
-    set status(value: Status) {
-        this._status = value;
-        this.notifyListeners();
-    }
-
-    get accumulatedHints(): string[] {
-        return this._accumulatedHints;
+        return this.currentCycle?.status ?? Status.IDLE;
     }
 
     get generationCycleDetails(): GenerationCycleDetails[] {
@@ -164,44 +178,53 @@ class RunningState {
         this.notifyListeners();
     }
 
-    get currentCycle(): GenerationCycleDetails | null {
-        return this._currentCycleIndex >= 0 ? this._generationCycleDetails[this._currentCycleIndex] : null;
+    private updateState(updater: (state: RunningState) => void) {
+        updater(this);
+        this.notifyChangeListeners();
     }
 
-    startNewCycle(model: string, wasForced: boolean = false): void {
-        const newCycle: GenerationCycleDetails = {
-            cycleNumber: this._generationCycleDetails.length + 1,
-            model,
-            initialBuildState: { ...this._buildState },
-            finalBuildState: { ...this._buildState },
-            initialTestResults: { ...this._testResults },
-            finalTestResults: { ...this._testResults },
-            codeChanges: { ...this._codeChanges },
-            timings: {
-                cycleStartTime: Date.now(),
-                cycleEndTime: 0,
-                compilationStartTime: 0,
-                compilationEndTime: 0,
-                testingStartTime: 0,
-                testingEndTime: 0,
-                codeGenerationStartTime: 0,
-                codeGenerationEndTime: 0,
-                retestingStartTime: 0,
-                retestingEndTime: 0
-            },
-            wasForced
-        };
-        this._generationCycleDetails.push(newCycle);
-        this._currentCycleIndex = this._generationCycleDetails.length - 1;
-        this.notifyListeners();
+    public resetState(): void {
+        this.updateState(state => {
+            state._status = Status.IDLE;
+            state._generationCycleDetails = [];
+            state._currentCycle = null;
+        });
     }
 
-    endCurrentCycle(): void {
-        if (this._currentCycleIndex >= 0) {
-            this._generationCycleDetails[this._currentCycleIndex].timings.cycleEndTime = new Date().getTime();
-            this._currentCycleIndex = -1;
-        }
-        this.notifyListeners();
+    public startNewCycle(model: string): void {
+        this.updateState(state => {
+            const newCycle: GenerationCycleDetails = {
+                model,
+                cycleNumber: state._generationCycleDetails.length + 1,
+                status: Status.IDLE,
+                initialBuildState: { compiledSuccessfully: false, compilerOutput: "" },
+                finalBuildState: { compiledSuccessfully: false, compilerOutput: "" },
+                initialTestResults: { testsPassed: false, passedTests: [], failedTests: [], erroredTests: [] },
+                finalTestResults: { testsPassed: false, passedTests: [], failedTests: [], erroredTests: [] },
+                codeChanges: { lastChangeTime: null, newFiles: [], deletedFiles: [], modifiedFiles: [], buildFiles: [] },
+                timings: { cycleStartTime: Date.now(), cycleEndTime: null, initialBuildStartTime: null, initialBuildEndTime: null, initialTestStartTime: null, initialTestEndTime: null, codeGenerationStartTime: null, codeGenerationEndTime: null, finalBuildStartTime: null, finalBuildEndTime: null, finalTestStartTime: null, finalTestEndTime: null },
+                wasForced: false
+            };
+            state._currentCycle = newCycle;
+            state._generationCycleDetails.push(newCycle);
+        });
+    }
+
+    public updateCurrentCycleStatus(status: Status): void {
+        this.updateState(state => {
+            state._status = status;
+            if (state._currentCycle) {
+                state._currentCycle.status = status;
+            }
+        });
+    }
+
+    public endCurrentCycle(): void {
+        this.updateState(state => {
+            if (state._currentCycle) {
+                state._currentCycle.timings.cycleEndTime = Date.now();
+            }
+        });
     }
 
     updateTimings(phase: keyof CycleTimings, isStart: boolean): void {
@@ -210,6 +233,11 @@ class RunningState {
             this._generationCycleDetails[this._currentCycleIndex].timings[timingKey] = new Date().getTime();
             this.notifyListeners();
         }
+    }
+
+    private notifyChangeListeners(): void {
+        console.log(`State changed: ${this.status}`);
+        this._changeListeners.forEach(listener => listener(this));
     }
 
     private notifyListeners(): void {
@@ -235,23 +263,30 @@ class RunningState {
         this.notifyListeners();
     }
 
-    resetState(): void {
-        this._status = Status.IDLE;
-        this._accumulatedHints = [];
+    resetCycleState(): void {
         this._testResults = {
             testsPassed: false,
             failedTests: [],
             passedTests: [],
-            erroredTests: [],
-            lastRunTime: null,
+            erroredTests: []
         };
         this._buildState = {
             compiledSuccessfully: false,
             compilerOutput: "",
-            compilerErrors: [],
-            lastCompileTime: new Date(),
-            compilationErrors: [],
-            logFile: "",
+        };
+        this.notifyListeners();
+    }
+
+    reset(): void {
+        this._buildState = {
+            compiledSuccessfully: false,
+            compilerOutput: "",
+        };
+        this._testResults = {
+            passedTests: [],
+            failedTests: [],
+            erroredTests: [],
+            testsPassed: false
         };
         this._codeChanges = {
             lastChangeTime: null,
@@ -260,63 +295,32 @@ class RunningState {
             modifiedFiles: [],
             buildFiles: [],
         };
-        this._cycleStartTime = null;
-        this._currentCycleIndex = -1;
-        this.notifyListeners();
-    }
-
-    resetCycleState(): void {
-        this._testResults = {
-            testsPassed: false,
-            failedTests: [],
-            passedTests: [],
-            erroredTests: [],
-            lastRunTime: null,
-        };
-        this._buildState = {
-            compiledSuccessfully: false,
-            compilerOutput: "",
-            compilerErrors: [],
-            lastCompileTime: new Date(),
-            compilationErrors: [],
-            logFile: "",
-        };
-        this.notifyListeners();
-    }
-
-    reset(): void {
-        this._status = Status.IDLE;
+        this._generationCycleDetails = [];
         this._accumulatedHints = [];
-        this._testResults = {
-            testsPassed: false,
-            failedTests: [],
-            passedTests: [],
-            erroredTests: [],
-            lastRunTime: null
-        };
-        this._buildState = {
-            compiledSuccessfully: false,
-            compilerOutput: "",
-            compilerErrors: [],
-            lastCompileTime: new Date(),
-            compilationErrors: [],
-            logFile: "",
-        };
-        this._codeChanges = {
-            lastChangeTime: null,
-            newFiles: [],
-            deletedFiles: [],
-            modifiedFiles: [],
-            buildFiles: []
-        };
         this._cycleStartTime = null;
-        this._currentCycleIndex = -1;
+        this._changeListeners = [];
         this.notifyListeners();
+    }
+
+    get accumulatedHints(): string[] {
+        return this._accumulatedHints;
+    }
+
+    async withPhase<T>(status: Status, phase: 'initialBuild' | 'initialTest' | 'codeGeneration' | 'finalBuild' | 'finalTest', fn: () => Promise<T>): Promise<T> {
+        console.log(`Starting phase: ${phase}`);
+        this.updateCurrentCycleStatus(status);
+        this.updateTimings(`${phase}StartTime` as keyof CycleTimings, true);
+        try {
+            const result = await fn();
+            return result;
+        } finally {
+            this.updateTimings(`${phase}EndTime` as keyof CycleTimings, false);
+            console.log(`Finished phase: ${phase}`);
+        }
     }
 }
 
 export { 
-    RunningState, 
     CodeFile, 
     CodeChangeSummary, 
     Status, 

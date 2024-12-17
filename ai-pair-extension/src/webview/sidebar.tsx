@@ -1,9 +1,9 @@
-import { Config, GenerationCycleDetails, RunningState } from 'ai-pair';
+import { Config, GenerationCycleDetails, RunningState, Status } from 'ai-pair/types';
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import { CycleDetails } from './components/CycleDetails';
-import { LogViewer } from './components/LogViewer';
-import { StatusBar } from './components/StatusBar';
+import { CycleDetails } from './components/cycle/CycleDetails';
+import { LogPanel } from './components/logging/LogPanel';
+import { StatusBar } from './components/statusbar/StatusBar';
 import { WelcomeComponent } from './components/WelcomeComponent';
 import { getVSCodeAPI } from './vscodeApi';
 
@@ -45,11 +45,23 @@ export const Sidebar: React.FC = () => {
     React.useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
-
+            console.log('Received message in webview:', message);
+            
             switch (message.type) {
                 case 'stateUpdate':
-                    setRunningState(message.state);
-                    setSelectedCycle(null);
+                    console.log('Previous state:', runningState);
+                    console.log('New state:', message.state);
+                    setRunningState(prevState => {
+                        // Only compare status and essential fields
+                        if (prevState && 
+                            prevState.status === message.state.status &&
+                            prevState.generationCycleDetails.length === message.state.generationCycleDetails.length) {
+                            console.log('Essential state unchanged, skipping update');
+                            return prevState;
+                        }
+                        console.log('Updating to new state:', message.state);
+                        return message.state;
+                    });
                     break;
                 case 'configUpdate':
                     setConfig(message.config);
@@ -152,15 +164,21 @@ export const Sidebar: React.FC = () => {
         }
     };
 
+    const handleToggleLog = () => {
+        console.log('Toggling log, current state:', isLogExpanded);
+        setIsLogExpanded(prev => !prev);
+    };
+
     return (
         <div style={{ 
             height: '100%', 
             display: 'flex', 
             flexDirection: 'column',
-            padding: '4px'
+            padding: '4px',
+            paddingBottom: '30px'
         }}>
             <StatusBar
-                status={runningState?.status || 'idle'}
+                status={runningState?.status || Status.IDLE}
                 config={config}
                 forceGeneration={forceGeneration}
                 onToggleWatch={toggleWatch}
@@ -242,21 +260,13 @@ export const Sidebar: React.FC = () => {
                         onCycleSelect={setSelectedCycle}
                     />
 
-                    <div style={{ 
-                        position: 'fixed',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: '250px',
-                        borderTop: '1px solid var(--vscode-panel-border)',
-                        background: 'var(--vscode-editor-background)'
-                    }}>
-                        <LogViewer 
-                            logs={logs} 
-                            onViewLogs={onViewLogs} 
-                            config={config || undefined}
-                        />
-                    </div>
+                    <LogPanel 
+                        logs={logs} 
+                        onViewLogs={onViewLogs} 
+                        config={config || undefined}
+                        isExpanded={isLogExpanded}
+                        onToggleExpand={handleToggleLog}
+                    />
                 </>
             )}
         </div>

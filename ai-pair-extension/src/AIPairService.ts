@@ -2,8 +2,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { AIPair, RunningState, Config, Status, TestResults, BuildState, GenerationCycleDetails } from 'ai-pair';
 import { ExtensionLogger } from './ExtensionLogger';
-import { promises as fs } from 'fs';
-import { existsSync, statSync } from 'fs';
+import { readFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import { LogPanelManager } from './LogPanelManager';
 
 type SerializedRunningState = {
     status: Status;
@@ -39,6 +40,7 @@ export class AIPairService {
     private _logger: ExtensionLogger;
     private _lastLogPosition: number = 0;
     private _logPath: string;
+    private _logPanelManager: LogPanelManager;
 
     private constructor(context: vscode.ExtensionContext, config: Config, runningState: RunningState) {
         this._context = context;
@@ -46,6 +48,7 @@ export class AIPairService {
         this._config = config;
         this._logger = ExtensionLogger.getInstance();
         this._logPath = path.join(config.tmpDir, 'ai-pair.log');
+        this._logPanelManager = new LogPanelManager(this._logPath);
 
         this._aiPair = new AIPair(config, runningState);
         
@@ -118,26 +121,10 @@ export class AIPairService {
             cycleStartTime: this._runningState.cycleStartTime?.toISOString() ?? null
         };
 
-        this._logger.debug(`Sending state update to webview, status: ${serializedState.status}, file changes: ${
-            serializedState.codeChanges.newFiles.length + 
-            serializedState.codeChanges.modifiedFiles.length + 
-            serializedState.codeChanges.deletedFiles.length
-        }`);
-
-        const messages: WebviewMessage[] = [
-            { type: 'stateUpdate', state: serializedState },
-        ];
-        
-        if (this._config) {
-            messages.push({ type: 'configUpdate', config: this._config });
-        }
-
-        messages.forEach(msg => {
-            webview.postMessage(msg);
+        webview.postMessage({
+            type: 'stateUpdate',
+            state: serializedState
         });
-
-        // Update status bar
-        vscode.commands.executeCommand('ai-pair-extension.updateStatusBar', this._runningState, this._config);
     }
 
     private notifyAllWebviews() {
@@ -189,139 +176,5 @@ export class AIPairService {
         this._runningState.addHint(hint);
         await this._aiPair.performCodeGenerationCyclesWithRetries();
         this.notifyAllWebviews();
-    }
-
-    private async readNewLogs(): Promise<string[]> {
-        try {
-            if (!existsSync(this._logPath)) {
-                return [];
-            }
-
-            const stats = statSync(this._logPath);
-            if (stats.size < this._lastLogPosition) {
-                // Log file was truncated, reset position
-                this._lastLogPosition = 0;
-            }
-
-            const fileHandle = await fs.open(this._logPath, 'r');
-            const buffer = Buffer.alloc(stats.size - this._lastLogPosition);
-            
-            await fileHandle.read(buffer, 0, buffer.length, this._lastLogPosition);
-            await fileHandle.close();
-
-            this._lastLogPosition = stats.size;
-
-            const newContent = buffer.toString();
-            return newContent.split('\n')
-                .filter(line => {
-                    const trimmed = line.trim();
-                    return trimmed !== '' && 
-                           (trimmed.includes('[DEBUG]') || trimmed.includes('[INFO]') || trimmed.includes('[ERROR]'));
-                })
-                .map(line => {
-                    // Remove timestamp and log level pattern
-                    return line.replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s+\[[^\]]+\]\s+/, '');
-                });
-        } catch (error) {
-            console.error('Error reading logs:', error);
-            return [];
-        }
-    }
-
-    public async handleWebviewMessage(message: any): Promise<void> {
-        if (!this.config) {
-            vscode.window.showErrorMessage('Configuration not found');
-            return;
-        }
-
-        this._logger.debug(`Handling webview message: ${JSON.stringify(message)}`);
-        switch (message.type) {
-            case 'viewGenerationLog': {
-                console.log('AIPairService: Handling viewGenerationLog message:', message);
-                const logPath = path.join(
-                    this.config.tmpDir,
-                    `generationCycle${message.cycleNumber}`,
-                    `${message.logType}.log`
-                );
-                console.log('AIPairService: Attempting to open log file:', logPath);
-                if (existsSync(logPath)) {
-                    console.log('AIPairService: Log file exists, opening...');
-                    await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(logPath));
-                } else {
-                    console.error('AIPairService: Log file not found:', logPath);
-                    vscode.window.showErrorMessage(`Log file not found: ${logPath}`);
-                }
-                break;
-            }
-            case 'viewCompilationLog': {
-                const logPath = path.join(
-                    this.config.tmpDir,
-                    `generationCycle${message.cycleNumber}`,
-                    message.isFinal ? 'final_build_result.log' : 'initial_build_result.log'
-                );
-                if (existsSync(logPath)) {
-                    await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(logPath));
-                } else {
-                    vscode.window.showErrorMessage(`Log file not found: ${logPath}`);
-                }
-                break;
-            }
-            case 'viewTestLog': {
-                const logPath = path.join(
-                    this.config.tmpDir,
-                    `generationCycle${message.cycleNumber}`,
-                    message.isFinal ? 'final_test_result.log' : 'initial_test_result.log'
-                );
-                if (existsSync(logPath)) {
-                    await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(logPath));
-                } else {
-                    vscode.window.showErrorMessage(`Log file not found: ${logPath}`);
-                }
-                break;
-            }
-            case 'requestLogs': {
-                const newLogs = await this.readNewLogs();
-                this._logger.debug(`Found ${newLogs.length} new logs`);
-                newLogs.forEach(log => {
-                    this._webviews.forEach(webview => {
-                        webview.postMessage({
-                            type: 'logUpdate',
-                            log
-                        });
-                    });
-                });
-                break;
-            }
-            case 'proposedChanges': {
-                // Handle proposed changes
-                break;
-            }
-            case 'viewFileDiff': {
-                const originalPath = path.join(
-                    this.config.tmpDir,
-                    `generationCycle${message.cycleNumber}`,
-                    'changes',
-                    `${message.filePath}.orig`
-                );
-                const modifiedPath = path.join(
-                    this.config.tmpDir,
-                    `generationCycle${message.cycleNumber}`,
-                    'changes',
-                    message.filePath
-                );
-                
-                if (existsSync(modifiedPath)) {
-                    const title = `Changes to ${message.filePath} (Cycle ${message.cycleNumber})`;
-                    await vscode.commands.executeCommand('vscode.diff',
-                        vscode.Uri.file(originalPath),
-                        vscode.Uri.file(modifiedPath),
-                        title
-                    );
-                } else {
-                    vscode.window.showErrorMessage(`File not found: ${modifiedPath}`);
-                }
-                break;
-            }
-        }
     }
 } 

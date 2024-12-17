@@ -1,8 +1,7 @@
+import { Config, Status } from 'ai-pair';
 import * as React from 'react';
-import { componentStyles } from '../styles/components';
-import { LoadingDots } from './LoadingDots';
-import { Status, Config } from 'ai-pair';
-import { StatusIndicator } from './StatusIndicator';
+import { componentStyles } from '../../styles/components';
+import { StatusIndicator } from '../StatusIndicator';
 
 declare const vscode: any;
 
@@ -17,7 +16,7 @@ interface StatusBarProps {
     onStop: () => void;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ 
+export const StatusBar: React.FC<StatusBarProps> = ({
     status,
     config,
     forceGeneration,
@@ -27,6 +26,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     onStart,
     onStop
 }) => {
+    console.log('StatusBar rendering with status:', status);
     return (
         <div style={componentStyles.statusBar}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -57,10 +57,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                 )}
                 <button
                     style={componentStyles.iconButton}
-                    onClick={status === 'idle' ? onStart : onStop}
-                    title={status === 'idle' ? 'Start AI Pair' : 'Stop AI Pair'}
+                    onClick={status === Status.IDLE ? onStart : onStop}
+                    title={status === Status.IDLE ? 'Start AI Pair' : 'Stop AI Pair'}
                 >
-                    <span className={`codicon codicon-${status === 'idle' ? 'play' : 'stop'}`} />
+                    <span className={`codicon codicon-${status === Status.IDLE ? 'play' : 'stop'}`} />
                 </button>
                 <button
                     style={componentStyles.iconButton}

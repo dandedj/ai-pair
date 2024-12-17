@@ -96,104 +96,94 @@ class AIPair {
     }
 
     async performCodeGenerationCycle(force = false): Promise<boolean> {
-
         this.runningState.resetCycleState();
-        this.logger.debug(`Starting new cycle with model: ${this.config.model}`);
+        this.logger.debug(`Starting cycle ${this.runningState.generationCycleDetails.length + 1} with model: ${this.config.model}`);
         this.runningState.startNewCycle(this.config.model);
 
-        this.runningState.status = Status.COMPILING;
-        const buildSuccess = await buildProject(this.config, this.runningState, false);
-        if (!buildSuccess) {
-            this.logger.info('Project compilation failed!');
+        await this.runningState.withPhase(Status.BUILDING, 'initialBuild', async () => {
+            return await buildProject(this.config, this.runningState, false);
+        });
+
+        if (this.runningState.currentCycle?.initialBuildState.compiledSuccessfully) {
+            await this.runningState.withPhase(Status.TESTING, 'initialTest', async () => {
+                await runTests(this.config, this.runningState, false);
+            });
         }
 
-        this.runningState.status = Status.TESTING;
-        await runTests(this.config, this.runningState, false);
-        this.runningState.updateTimings('testingEndTime', false);
-
-        if (buildSuccess && this.runningState.currentCycle?.initialTestResults.testsPassed) {
+        if (!force && this.runningState.currentCycle?.initialBuildState.compiledSuccessfully && 
+            this.runningState.currentCycle?.initialTestResults.testsPassed) {
             this.logger.info('Project compiles and all tests passed! No changes needed.');
-            this.runningState.status = Status.COMPLETED;
+            this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
             this.runningState.endCurrentCycle();
             return true;
         }
 
-        this.runningState.status = Status.GENERATING_CODE;
-        this.runningState.updateTimings('codeGenerationStartTime', true);
+        await this.runningState.withPhase(Status.GENERATING_CODE, 'codeGeneration', async () => {
+            this.logger.debug('Collecting files for code generation');
+            // extract the build file content
+            // TODO: handle both build.gradle and build.gradle.kts and other build file types
+            const buildGradleContent = fs.readFileSync(path.join(this.config.projectRoot, 'build.gradle.kts'), 'utf8');
 
-        this.logger.debug('Collecting files for code generation');
+            const codeFiles = await collectFilesWithExtension(
+                [path.join(this.config.projectRoot, 'src/main')],
+                this.config.extension
+            );
 
-        // extract the build file content
-        // TODO: handle both build.gradle and build.gradle.kts and other build file types
-        const buildGradleContent = fs.readFileSync(path.join(this.config.projectRoot, 'build.gradle.kts'), 'utf8');
+            const testFiles = await collectTestFiles(force, this.config);
 
-        const codeFiles = await collectFilesWithExtension(
-            [path.join(this.config.projectRoot, 'src/main')],
-            this.config.extension
-        );
+            this.logger.debug(
+                `${codeFiles.length} code files and ${testFiles.length} test files will be used for code generation`
+            );
 
-        const testFiles = await collectTestFiles(force, this.config);
+            const filesContent = [...codeFiles, ...testFiles]
+                .map((file) => {
+                    const relativePath = path.relative(this.config.projectRoot, file.path);
+                    return `File: ${relativePath}\n\n${file.content}`;
+                })
+                .join('\n\n');
 
-        this.logger.debug(
-            `${codeFiles.length} code files and ${testFiles.length} test files will be used for code generation`
-        );
+            // Create cycle directory and get paths
+            const cycleDir = path.join(this.config.tmpDir, `generationCycle${this.runningState.generationCycleDetails.length}`);
+            fs.mkdirSync(cycleDir, { recursive: true });
 
-        const filesContent = [...codeFiles, ...testFiles]
-            .map((file) => {
-                const relativePath = path.relative(this.config.projectRoot, file.path);
-                return `File: ${relativePath}\n\n${file.content}`;
-            })
-            .join('\n\n');
+            const prompt = constructPrompt(this.config, this.runningState, filesContent, buildGradleContent);
+            const systemPrompt = this.config.systemPrompt;
 
-        // Create cycle directory and get paths
-        const cycleDir = path.join(this.config.tmpDir, `generationCycle${this.runningState.generationCycleDetails.length}`);
-        fs.mkdirSync(cycleDir, { recursive: true });
+            this.logger.info(`Sending prompt to AI service : ${this.config.model}`);
 
-        const prompt = constructPrompt(this.config, this.runningState, filesContent, buildGradleContent);
-        const systemPrompt = this.config.systemPrompt;
+            // Pass cycleDir for logging
+            const generatedCode = await this.client.generateResponse(prompt, systemPrompt, cycleDir);
+            const codeChanges = parseAndApplyGeneratedCode(this.config, this.runningState, generatedCode);
+            this.runningState.codeChanges = codeChanges;
+        });
 
-        this.logger.info(`Sending prompt to AI service : ${this.config.model}`);
-
-        // Pass cycleDir for logging
-        const generatedCode = await this.client.generateResponse(prompt, systemPrompt, cycleDir);
-        this.runningState.updateTimings('codeGenerationEndTime', false);
-
-        this.runningState.status = Status.APPLYING_CHANGES;
-
-        const codeChanges = parseAndApplyGeneratedCode(this.config, this.runningState, generatedCode);
-
-        this.runningState.codeChanges = codeChanges;
-
-        // If no changes were made, and tests were already passing, we're done
-        if (codeChanges.newFiles.length === 0 && 
-            codeChanges.modifiedFiles.length === 0 && 
-            codeChanges.buildFiles.length === 0 &&
+        if (this.runningState.codeChanges.newFiles.length === 0 && 
+            this.runningState.codeChanges.modifiedFiles.length === 0 && 
+            this.runningState.codeChanges.buildFiles.length === 0 &&
             this.runningState.buildState.compiledSuccessfully && 
             this.runningState.testResults.testsPassed) {
             this.runningState.endCurrentCycle();
-            this.runningState.status = Status.COMPLETED;
+            this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
             return true;
         }
 
         this.logger.debug('Retrying tests after applying AI-generated code');
         this.runningState.resetCycleState();
 
-        this.runningState.status = Status.RECOMPILING;
-        const finalBuildSuccess = await buildProject(this.config, this.runningState, true);
-        if (!finalBuildSuccess) {
-            this.logger.info('Final build failed!');
-            this.runningState.status = Status.COMPLETED;
-            return false;
-        }
+        await this.runningState.withPhase(Status.REBUILDING, 'finalBuild', async () => {
+            return await buildProject(this.config, this.runningState, true);
+        });
 
-        this.runningState.status = Status.RETESTING;
-        this.runningState.updateTimings('retestingStartTime', true);
-        await runTests(this.config, this.runningState, true);
-        this.runningState.updateTimings('retestingEndTime', false);
+        // Only run final tests if build succeeded
+        if (this.runningState.currentCycle?.finalBuildState.compiledSuccessfully) {
+            await this.runningState.withPhase(Status.RETESTING, 'finalTest', async () => {
+                await runTests(this.config, this.runningState, true);
+            });
+        }
 
         this.logger.debug(`Tests passed: ${this.runningState.currentCycle?.finalTestResults.testsPassed}`);
 
-        this.runningState.status = Status.COMPLETED;
+        this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
         this.runningState.endCurrentCycle();
 
         return this.runningState.currentCycle?.finalBuildState.compiledSuccessfully && 

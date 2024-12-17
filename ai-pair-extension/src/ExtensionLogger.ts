@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ILogger } from './webview/WebviewLogger';
+import { ILogger } from './types/ILogger';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -8,7 +8,6 @@ export class ExtensionLogger implements ILogger {
     private static instance: ExtensionLogger | null = null;
     private logFile: string;
     private logLevel: LogLevel;
-    private initialized: boolean = false;
 
     private constructor(logDir: string, logLevel: LogLevel) {
         this.logLevel = logLevel;

@@ -1,9 +1,4 @@
-export interface ILogger {
-    debug(message: string): void;
-    info(message: string): void;
-    warn(message: string): void;
-    error(message: string): void;
-}
+import { ILogger } from '../../../types/ILogger';
 
 class WebviewLogger implements ILogger {
     debug(message: string) {
