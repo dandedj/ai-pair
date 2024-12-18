@@ -1,4 +1,3 @@
-
 interface CodeChangeSummary {
     lastChangeTime: Date | null;
     newFiles: string[];
@@ -77,7 +76,6 @@ export function getStatusDisplay(status: Status): string {
 }
 
 export class RunningState {
-    private _status: Status = Status.IDLE;
     private _generationCycleDetails: GenerationCycleDetails[] = [];
     private _currentCycle: GenerationCycleDetails | null = null;
     private _changeListeners: ((state: RunningState) => void)[] = [];
@@ -126,7 +124,10 @@ export class RunningState {
     }
 
     get status(): Status {
-        return this.currentCycle?.status ?? Status.IDLE;
+        if (!this.currentCycle) {
+            return Status.IDLE;
+        }
+        return this.currentCycle.status;
     }
 
     get generationCycleDetails(): GenerationCycleDetails[] {
@@ -185,7 +186,6 @@ export class RunningState {
 
     public resetState(): void {
         this.updateState(state => {
-            state._status = Status.IDLE;
             state._generationCycleDetails = [];
             state._currentCycle = null;
         });
@@ -211,10 +211,11 @@ export class RunningState {
     }
 
     public updateCurrentCycleStatus(status: Status): void {
+        console.log(`Updating cycle status from ${Status[this.status]} to ${Status[status]}`);
         this.updateState(state => {
-            state._status = status;
             if (state._currentCycle) {
                 state._currentCycle.status = status;
+                this.notifyListeners();
             }
         });
     }
@@ -236,7 +237,6 @@ export class RunningState {
     }
 
     private notifyChangeListeners(): void {
-        console.log(`State changed: ${this.status}`);
         this._changeListeners.forEach(listener => listener(this));
     }
 
@@ -307,7 +307,7 @@ export class RunningState {
     }
 
     async withPhase<T>(status: Status, phase: 'initialBuild' | 'initialTest' | 'codeGeneration' | 'finalBuild' | 'finalTest', fn: () => Promise<T>): Promise<T> {
-        console.log(`Starting phase: ${phase}`);
+        console.log(`Starting phase: ${phase} with status: ${Status[status]}`);
         this.updateCurrentCycleStatus(status);
         this.updateTimings(`${phase}StartTime` as keyof CycleTimings, true);
         try {
@@ -315,7 +315,7 @@ export class RunningState {
             return result;
         } finally {
             this.updateTimings(`${phase}EndTime` as keyof CycleTimings, false);
-            console.log(`Finished phase: ${phase}`);
+            console.log(`Finished phase: ${phase} with status: ${Status[this.status]}`);
         }
     }
 }

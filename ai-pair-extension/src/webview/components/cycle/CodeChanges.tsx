@@ -2,6 +2,7 @@ import * as React from 'react';
 import { componentStyles } from '../../styles/components';
 import { getVSCodeAPI } from '../../vscodeApi';
 import { ViewLogsLink } from '../common/ViewLogsLink';
+import { CodeChangeSummary } from 'ai-pair-types';
 
 export interface FileChange {
     filePath: string;

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { componentStyles } from '../../styles/components';
-import { GenerationCycleDetails } from 'ai-pair/types';
+import { GenerationCycleDetails } from 'ai-pair-types';
 
 interface TimingDetailsProps {
     selectedCycle: GenerationCycleDetails | null;

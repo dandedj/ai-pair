@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { GenerationCycleDetails, Status } from 'ai-pair/types';
+import { GenerationCycleDetails, Status } from 'ai-pair-types';
 import { DetailBox } from './DetailBox';
 import { DetailSection } from './DetailSection';
 import { BuildState } from './BuildState';
@@ -8,11 +8,15 @@ import { CodeChanges } from './CodeChanges';
 import { TimingDetails } from './TimingDetails';
 import { ViewLogsLink } from '../common/ViewLogsLink';
 import { LoadingDots } from '../common/LoadingDots';
-import { isCurrentSection, shouldShowSection } from './helper/CycleHelper';
 import { getVSCodeAPI } from '../../vscodeApi';
 
 interface CycleDetailProps {
     cycle: GenerationCycleDetails;
+}
+
+interface FileChange {
+    filePath: string;
+    changeType: 'add' | 'modify' | 'delete';
 }
 
 export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
@@ -24,7 +28,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
                     <BuildState
                         isCompiled={cycle.initialBuildState?.compiledSuccessfully || false}
-                        isLoading={isCurrentSection(cycle, Status.BUILDING)}
+                        isLoading={cycle.status === Status.BUILDING}
                         buildDuration={cycle.timings?.initialBuildStartTime && cycle.timings?.initialBuildEndTime ? 
                             new Date(cycle.timings.initialBuildEndTime).getTime() - new Date(cycle.timings.initialBuildStartTime).getTime() : 
                             undefined}
@@ -36,7 +40,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                             passedTests={cycle.initialTestResults?.passedTests || []}
                             failedTests={cycle.initialTestResults?.failedTests || []}
                             erroredTests={cycle.initialTestResults?.erroredTests || []}
-                            isLoading={isCurrentSection(cycle, Status.TESTING)}
+                            isLoading={cycle.status === Status.TESTING}
                             cycleNumber={cycle.cycleNumber}
                             isFinal={false}
                         />
@@ -44,7 +48,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                 </div>
             </DetailSection>
 
-            {shouldShowSection(cycle, Status.GENERATING_CODE) && (
+            {cycle.status >= Status.GENERATING_CODE && (
                 <DetailSection 
                     title="Generating fixes"
                     headerActions={
@@ -65,20 +69,20 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                     }
                 >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {shouldShowSection(cycle, Status.GENERATING_CODE) || shouldShowSection(cycle, Status.APPLYING_CHANGES) ? (
+                        {cycle.status === Status.GENERATING_CODE || cycle.status === Status.APPLYING_CHANGES ? (
                             <LoadingDots label="Generating" />
                         ) : (
                             <CodeChanges
                                 changes={[
-                                    ...(cycle.codeChanges?.modifiedFiles || []).map(file => ({
+                                    ...(cycle.codeChanges?.modifiedFiles || []).map((file: string) => ({
                                         filePath: file,
                                         changeType: 'modify' as const,
                                     })),
-                                    ...(cycle.codeChanges?.newFiles || []).map(file => ({
+                                    ...(cycle.codeChanges?.newFiles || []).map((file: string) => ({
                                         filePath: file,
                                         changeType: 'add' as const,
                                     })),
-                                    ...(cycle.codeChanges?.deletedFiles || []).map(file => ({
+                                    ...(cycle.codeChanges?.deletedFiles || []).map((file: string) => ({
                                         filePath: file,
                                         changeType: 'delete' as const,
                                     }))
@@ -96,12 +100,12 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                 </DetailSection>
             )}
 
-            {shouldShowSection(cycle, Status.REBUILDING) && (
+            {cycle.status >= Status.REBUILDING && (
                 <DetailSection title="Validating">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <BuildState
                             isCompiled={cycle.finalBuildState?.compiledSuccessfully || false}
-                            isLoading={isCurrentSection(cycle, Status.REBUILDING)}
+                            isLoading={cycle.status === Status.REBUILDING}
                             buildDuration={cycle.timings?.finalBuildStartTime && cycle.timings?.finalBuildEndTime ? 
                                 new Date(cycle.timings.finalBuildEndTime).getTime() - new Date(cycle.timings.finalBuildStartTime).getTime() : 
                                 undefined}
@@ -113,7 +117,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                                 passedTests={cycle.finalTestResults?.passedTests || []}
                                 failedTests={cycle.finalTestResults?.failedTests || []}
                                 erroredTests={cycle.finalTestResults?.erroredTests || []}
-                                isLoading={isCurrentSection(cycle, Status.RETESTING)}
+                                isLoading={cycle.status === Status.RETESTING}
                                 cycleNumber={cycle.cycleNumber}
                                 isFinal={true}
                             />
@@ -122,7 +126,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                 </DetailSection>
             )}
 
-            {shouldShowSection(cycle, Status.COMPLETED) && (
+            {cycle.status === Status.COMPLETED && (
                 <DetailSection title="Timing Details">
                     <TimingDetails selectedCycle={cycle} hideHeader />
                 </DetailSection>

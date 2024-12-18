@@ -1,7 +1,6 @@
 import { jest, expect, describe, beforeEach, it } from '@jest/globals';
 import { AIPair } from '../src/ai-pair';
-import { Config } from '../src/types/config';
-import { RunningState } from '../src/types/running-state';
+import { Config, RunningState } from 'ai-pair-types';
 import * as testUtils from '../src/lib/test-utils';
 import * as fileUtils from '../src/lib/file-utils';
 import { ChatGPTClient } from '../src/lib/ai/chatgpt-client';
@@ -9,7 +8,7 @@ import AIClientFactory from '../src/lib/ai/ai-client-factory';
 import fs from 'fs';
 import path from 'path';
 
-type MockRunTests = jest.MockedFunction<(config: Config, runningState: RunningState) => Promise<void>>;
+type MockRunTests = jest.MockedFunction<typeof testUtils.runTests>;
 
 // Create a formatted timestamp
 const getFormattedTime = () => {
@@ -125,7 +124,7 @@ describe('AIPair', () => {
             
             expect(result).toBe(true);
             expect(mockGenerateResponse).not.toHaveBeenCalled();
-            expect(runningState.generationCycles).toBe(0);
+            expect(runningState.generationCycleDetails.length).toBe(0);
             expect(runningState.buildState.compiledSuccessfully).toBe(true);
             expect(runningState.testResults.testsPassed).toBe(true);
         });
@@ -176,12 +175,10 @@ describe('AIPair', () => {
         it('should properly reset cycle state', async () => {
             // Set some initial state
             runningState.cycleStartTime = new Date(2000, 1, 1);
-            runningState.lastRunOutput = 'old output';
             
             await aiPair.performCodeGenerationCycle(false);
             
             expect(runningState.cycleStartTime).not.toEqual(new Date(2000, 1, 1));
-            expect(runningState.lastRunOutput).not.toBe('old output');
         });
     });
 
@@ -189,7 +186,7 @@ describe('AIPair', () => {
         it('should stop after successful generation', async () => {
             await aiPair.performCodeGenerationCyclesWithRetries(false);
             
-            expect(runningState.generationCycles).toBe(1);
+            expect(runningState.generationCycleDetails.length).toBe(1);
             expect(config.model).toBe('gpt-4'); // Should restore original model
         });
 
@@ -203,7 +200,7 @@ describe('AIPair', () => {
 
             await aiPair.performCodeGenerationCyclesWithRetries(false);
             
-            expect(runningState.generationCycles).toBe(config.numRetries);
+            expect(runningState.generationCycleDetails.length).toBe(config.numRetries);
             expect(config.model).toBe('gpt-4'); // Should restore original model
         });
 
@@ -224,7 +221,7 @@ describe('AIPair', () => {
             
             // Should only have one test run after the forced generation
             expect(mockRunTests).toHaveBeenCalledTimes(1);
-            expect(runningState.generationCycles).toBe(1);
+            expect(runningState.generationCycleDetails.length).toBe(1);
         });
 
         it('should switch to o1-preview model on last retry', async () => {

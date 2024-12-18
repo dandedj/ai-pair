@@ -1,8 +1,4 @@
-import { GenerationCycleDetails, Status } from 'ai-pair/types';
-
-export const isCurrentSection = (cycle: GenerationCycleDetails, status: Status): boolean => {
-    return cycle.status === status;
-};
+import { GenerationCycleDetails, Status } from 'ai-pair-types';
 
 export const isInitialBuildComplete = (cycle: GenerationCycleDetails): boolean => {
     return cycle.initialBuildState !== undefined;
@@ -86,12 +82,4 @@ export const formatDuration = (duration: number): string => {
     }
 
     return `${minutes}m ${remainingSeconds}s`;
-};
-
-export const isPendingSection = (cycle: GenerationCycleDetails, status: Status): boolean => {
-    return cycle.status < status;
-};
-
-export const shouldShowSection = (cycle: GenerationCycleDetails, status: Status): boolean => {
-    return cycle.status >= status;
 }; 

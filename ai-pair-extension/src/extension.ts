@@ -1,4 +1,5 @@
-import { RunningState } from 'ai-pair';
+import { Config } from 'ai-pair-types';
+import { RunningState } from 'ai-pair-types';
 import * as vscode from 'vscode';
 import { AIPairService } from './AIPairService';
 import { ConfigLoader } from './ConfigLoader';

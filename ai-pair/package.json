@@ -28,7 +28,8 @@
     "pino": "^8.16.0",
     "pino-pretty": "^10.2.3",
     "readline-sync": "^1.4.10",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "ai-pair-types": "file:../ai-pair-types"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

@@ -1,4 +1,4 @@
-import { Config, GenerationCycleDetails, RunningState, Status } from 'ai-pair/types';
+import { Config, GenerationCycleDetails, RunningState, Status } from 'ai-pair-types';
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import { CycleDetails } from './components/cycle/CycleDetails';
@@ -45,21 +45,18 @@ export const Sidebar: React.FC = () => {
     React.useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
-            console.log('Received message in webview:', message);
-            
+
             switch (message.type) {
                 case 'stateUpdate':
-                    console.log('Previous state:', runningState);
-                    console.log('New state:', message.state);
-                    setRunningState(prevState => {
+
+                    setRunningState((prevState: RunningState | null) => {
                         // Only compare status and essential fields
-                        if (prevState && 
+                        if (prevState &&
                             prevState.status === message.state.status &&
                             prevState.generationCycleDetails.length === message.state.generationCycleDetails.length) {
                             console.log('Essential state unchanged, skipping update');
                             return prevState;
                         }
-                        console.log('Updating to new state:', message.state);
                         return message.state;
                     });
                     break;
@@ -78,15 +75,15 @@ export const Sidebar: React.FC = () => {
 
         // Add event listener
         window.addEventListener('message', handleMessage);
-        
+
         console.log('Setting up log polling...');
-        
+
         // Request initial logs
         if (vscodeApi) {
             console.log('Requesting initial logs...');
             vscodeApi.postMessage({ type: 'requestLogs' });
         }
-        
+
         // Set up periodic log updates
         const logInterval = setInterval(() => {
             if (vscodeApi) {
@@ -106,18 +103,14 @@ export const Sidebar: React.FC = () => {
         return null;
     }
 
-    const handleViewDiff = (filePath: string) => {
-        vscodeApi?.postMessage({ type: 'viewDiff', filePath });
-    };
-
     const openSettings = () => {
         vscodeApi?.postMessage({ type: 'openSettings' });
     };
 
     const handleStart = () => {
-        vscodeApi?.postMessage({ 
+        vscodeApi?.postMessage({
             type: 'startAIPair',
-            forceGeneration 
+            forceGeneration
         });
     };
 
@@ -137,27 +130,14 @@ export const Sidebar: React.FC = () => {
         setForceGeneration(!forceGeneration);
     };
 
-    const handleCycleSelect = (cycle: GenerationCycleDetails) => {
-        setSelectedCycle(cycle);
-    };
-
-    // Get the test results and code changes to display based on selected cycle
-    const displayTestResults = selectedCycle ? selectedCycle.initialTestResults : runningState.testResults;
-    const displayCodeChanges = selectedCycle ? selectedCycle.codeChanges : runningState.codeChanges;
-    const displayBuildState = selectedCycle ? 
-        (selectedCycle.initialBuildState || runningState.buildState) : 
-        runningState.buildState;
-
-    const displayFinalBuildState = selectedCycle?.finalBuildState;
-
     const onViewLogs = (logPath: string) => {
         try {
             if (!vscodeApi) {
                 throw new Error('VSCode API not available');
             }
-            vscodeApi.postMessage({ 
+            vscodeApi.postMessage({
                 type: 'viewLogs',
-                logPath 
+                logPath
             });
         } catch (error) {
             console.error('Error viewing logs:', error);
@@ -170,9 +150,9 @@ export const Sidebar: React.FC = () => {
     };
 
     return (
-        <div style={{ 
-            height: '100%', 
-            display: 'flex', 
+        <div style={{
+            height: '100%',
+            display: 'flex',
             flexDirection: 'column',
             padding: '4px',
             paddingBottom: '30px'
@@ -189,13 +169,13 @@ export const Sidebar: React.FC = () => {
             />
 
             {runningState && runningState.generationCycleDetails.length === 0 ? (
-                <WelcomeComponent 
+                <WelcomeComponent
                     onOpenSettings={openSettings}
                     onStart={handleStart}
                 />
             ) : (
                 <>
-                    <div style={{ 
+                    <div style={{
                         padding: '8px',
                         display: 'flex',
                         gap: '8px',
@@ -260,9 +240,9 @@ export const Sidebar: React.FC = () => {
                         onCycleSelect={setSelectedCycle}
                     />
 
-                    <LogPanel 
-                        logs={logs} 
-                        onViewLogs={onViewLogs} 
+                    <LogPanel
+                        logs={logs}
+                        onViewLogs={onViewLogs}
                         config={config || undefined}
                         isExpanded={isLogExpanded}
                         onToggleExpand={handleToggleLog}

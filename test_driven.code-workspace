@@ -11,6 +11,9 @@
     {
       "name": "ai-pair-cli",
       "path": "ai-pair-cli"
+    },
+    {
+      "path": "ai-pair-types"
     }
   ],
   "settings": {}

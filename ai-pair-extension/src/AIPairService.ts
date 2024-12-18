@@ -1,9 +1,15 @@
-import * as vscode from 'vscode';
+import { AIPair } from 'ai-pair';
+import { 
+    BuildState, 
+    Config, 
+    GenerationCycleDetails, 
+    RunningState, 
+    Status,
+    TestResults 
+} from 'ai-pair-types';
 import * as path from 'path';
-import { AIPair, RunningState, Config, Status, TestResults, BuildState, GenerationCycleDetails } from 'ai-pair';
+import * as vscode from 'vscode';
 import { ExtensionLogger } from './ExtensionLogger';
-import { readFile } from 'fs/promises';
-import { existsSync } from 'fs';
 import { LogPanelManager } from './LogPanelManager';
 
 type SerializedRunningState = {
@@ -128,7 +134,6 @@ export class AIPairService {
     }
 
     private notifyAllWebviews() {
-        this._logger.debug(`Notifying ${this._webviews.size} webviews of state change: ${this._runningState.status}`);
         this._webviews.forEach(webview => this.notifyWebview(webview));
     }
 

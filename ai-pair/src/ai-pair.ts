@@ -1,3 +1,4 @@
+import { CodeFile, Config, RunningState, Status } from 'ai-pair-types';
 import fs from 'fs';
 import path from 'path';
 import AIClientFactory from './lib/ai/ai-client-factory';
@@ -5,12 +6,10 @@ import { ChatGPTClient } from './lib/ai/chatgpt-client';
 import { ClaudeClient } from './lib/ai/claude-client';
 import { GeminiClient } from './lib/ai/gemini-client';
 import { constructPrompt } from './lib/ai/prompt-utils';
+import { parseAndApplyGeneratedCode } from './lib/code-parser';
 import { clearDirectory, collectFilesWithExtension } from './lib/file-utils';
 import { Logger } from './lib/logger';
-import { runTests, collectTestFiles, buildProject } from './lib/test-utils';
-import { Config } from './types/config';
-import { CodeFile, RunningState, Status, GenerationCycleDetails } from './types/running-state';
-import { parseAndApplyGeneratedCode } from './lib/code-parser';
+import { buildProject, collectTestFiles, runTests } from './lib/test-utils';
 
 type AIClient = ChatGPTClient | ClaudeClient | GeminiClient;
 type ErrorWithMessage = { message: string };
@@ -120,9 +119,9 @@ class AIPair {
 
         await this.runningState.withPhase(Status.GENERATING_CODE, 'codeGeneration', async () => {
             this.logger.debug('Collecting files for code generation');
-            // extract the build file content
-            // TODO: handle both build.gradle and build.gradle.kts and other build file types
-            const buildGradleContent = fs.readFileSync(path.join(this.config.projectRoot, 'build.gradle.kts'), 'utf8');
+
+            const buildGradlePath = path.join(this.config.projectRoot, 'build.gradle.kts');
+            const buildGradleContent = await fs.readFileSync(buildGradlePath, 'utf8');
 
             const codeFiles = await collectFilesWithExtension(
                 [path.join(this.config.projectRoot, 'src/main')],
@@ -213,4 +212,4 @@ class AIPair {
         return generatedCode;
     }
 }
-export { AIPair, CodeFile, GenerationCycleDetails };
+export { AIPair, CodeFile };

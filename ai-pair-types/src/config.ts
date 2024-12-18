@@ -15,7 +15,6 @@ export interface ConfigOptions {
     numRetries: number;
     escalateToPremiumModel: boolean;
     escalationModel: string;
-    // ... rest of the interface ...
 }
 
 interface ConfigData {

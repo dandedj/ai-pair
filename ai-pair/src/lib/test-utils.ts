@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
-import { Config } from '../types/config';
-import { RunningState, TestResults, CodeFile } from '../types/running-state';
+import { Config } from 'ai-pair-types';
+import { RunningState, TestResults, CodeFile } from 'ai-pair-types';
 import { logger } from './logger';
 import * as fs from 'fs';
 import * as path from 'path';

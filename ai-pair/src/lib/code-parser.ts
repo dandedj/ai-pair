@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
-import { Config } from '../types/config';
-import { RunningState, CodeChangeSummary } from '../types/running-state';
+import { Config } from 'ai-pair-types';
+import { RunningState, CodeChangeSummary } from 'ai-pair-types';
 import { logger } from './logger';
 import { fileExists, isBuildFile, isTestFile, safeWriteFile } from './file-utils';
 

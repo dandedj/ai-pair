@@ -1,4 +1,4 @@
-import { Config, Status } from 'ai-pair';
+import { Config, Status } from 'ai-pair-types';
 import * as React from 'react';
 import { componentStyles } from '../../styles/components';
 import { StatusIndicator } from '../StatusIndicator';
@@ -26,7 +26,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     onStart,
     onStop
 }) => {
-    console.log('StatusBar rendering with status:', status);
     return (
         <div style={componentStyles.statusBar}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -42,7 +41,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                                 onChange={onToggleWatch}
                                 style={{ margin: 0 }}
                             />
-                            Watch
+                            watch
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--vscode-foreground)', cursor: 'pointer' }}>
                             <input
@@ -51,7 +50,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                                 onChange={onToggleForce}
                                 style={{ margin: 0 }}
                             />
-                            Force Generation
+                            force
                         </label>
                     </>
                 )}

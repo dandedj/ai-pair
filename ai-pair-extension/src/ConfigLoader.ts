@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { Config } from 'ai-pair';
+import { Config } from 'ai-pair-types';
 import { loadPrompts } from 'ai-pair';
 
 export class ConfigLoader {

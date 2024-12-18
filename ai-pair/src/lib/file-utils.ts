@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { logger } from './logger';
-import { CodeFile } from '../types/running-state';
+import { CodeFile } from 'ai-pair-types';
 import { existsSync, mkdirSync } from 'fs';
 
 /**
@@ -37,9 +37,9 @@ export async function collectFilesWithExtension(
         for (const item of items) {
             const fullPath = path.join(directory, item);
             try {
-                const stat = await fs.stat(fullPath);
+                const stats = await fs.stat(fullPath);
 
-                if (stat.isDirectory()) {
+                if (stats.isDirectory()) {
                     files.push(...(await collectFilesWithExtension([fullPath], extension)));
                 } else if (item.endsWith(extension)) {
                     const content = await fs.readFile(fullPath, 'utf-8');

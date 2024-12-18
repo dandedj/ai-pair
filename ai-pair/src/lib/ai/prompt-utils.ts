@@ -1,5 +1,5 @@
-import { Config } from '../../types/config';
-import { RunningState } from '../../types/running-state';
+import { Config } from 'ai-pair-types';
+import { RunningState } from 'ai-pair-types';
 import * as fs from 'fs';
 import { joinPaths } from '../file-utils';
 
