@@ -47,16 +47,13 @@ function createMockCycle(overrides?: Partial<GenerationCycleDetails>): Generatio
         timings: {
             cycleStartTime: Date.now(),
             cycleEndTime: Date.now(),
-            initialBuildStartTime: Date.now(),
-            initialBuildEndTime: Date.now(),
-            initialTestStartTime: Date.now(),
-            initialTestEndTime: Date.now(),
-            codeGenerationStartTime: Date.now(),
-            codeGenerationEndTime: Date.now(),
-            finalBuildStartTime: Date.now(),
-            finalBuildEndTime: Date.now(),
-            finalTestStartTime: Date.now(),
-            finalTestEndTime: Date.now(),
+            phaseTimings: [
+                { status: Status.BUILDING, startTime: Date.now(), endTime: Date.now() },
+                { status: Status.TESTING, startTime: Date.now(), endTime: Date.now() },
+                { status: Status.GENERATING_CODE, startTime: Date.now(), endTime: Date.now() },
+                { status: Status.REBUILDING, startTime: Date.now(), endTime: Date.now() },
+                { status: Status.RETESTING, startTime: Date.now(), endTime: Date.now() }
+            ]
         },
         ...overrides,
     };

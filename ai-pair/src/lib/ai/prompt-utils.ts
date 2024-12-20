@@ -10,28 +10,41 @@ function constructPrompt(
     config: Config,
     runningState: RunningState,
     filesContent: string,
-    buildGradleContent: string
+    buildGradleContent: string,
+    instructions?: string
 ): string {
-    const { testResults, accumulatedHints } = runningState;
-    const testsPassed = testResults.failedTests.length === 0 && testResults.erroredTests.length === 0;
+    const currentCycle = runningState.currentCycle;
+    if (!currentCycle) {
+        throw new Error('No current cycle available');
+    }
+
+    // Get failure logs
+    let failureLog = '';
+    if (!currentCycle.initialBuildState.compiledSuccessfully) {
+        failureLog = currentCycle.initialBuildState.compilerOutput;
+    } else if (!currentCycle.initialTestResults.testsPassed) {
+        failureLog = currentCycle.initialTestResults.testOutput;
+    }
 
     // Choose the appropriate prompt template
-    const template = testsPassed
+    const template = currentCycle.initialTestResults.testsPassed
         ? config.noIssuePromptTemplate
         : config.promptTemplate;
 
     let prompt = template
         .replace('{filesContent}', filesContent)
-        .replace('{buildGradleContent}', buildGradleContent);
+        .replace('{buildGradleContent}', buildGradleContent)
+        .replace('{testOutput}', failureLog);
 
-    if (!testsPassed) {
-        prompt = prompt.replace('{testOutput}', 'No test output available');
+    // Add instructions if provided
+    if (instructions) {
+        prompt += `\n\nInstructions: ${instructions}`;
     }
 
     // Append hints if available
-    if (accumulatedHints.length > 0) {
-        const hintsText = accumulatedHints.join('; ');
-        const hintsSection = testsPassed
+    if (runningState.accumulatedHints.length > 0) {
+        const hintsText = runningState.accumulatedHints.join('; ');
+        const hintsSection = currentCycle.initialTestResults.testsPassed
             ? `\n\nUser hints: ${hintsText}`
             : `\n\nHints for improvement: ${hintsText}`;
         prompt += hintsSection;

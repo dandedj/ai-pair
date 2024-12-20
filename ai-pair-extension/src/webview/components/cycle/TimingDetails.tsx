@@ -1,69 +1,35 @@
 import * as React from 'react';
-import { componentStyles } from '../../styles/components';
-import { GenerationCycleDetails } from 'ai-pair-types';
+import { GenerationCycleDetails, Status, PhaseTimings } from 'ai-pair-types';
 
 interface TimingDetailsProps {
-    selectedCycle: GenerationCycleDetails | null;
+    selectedCycle: GenerationCycleDetails;
     hideHeader?: boolean;
 }
 
+const formatDurationMs = (duration: number | undefined): string => {
+    if (duration === undefined) return '-';
+    return `${duration.toLocaleString()} ms`;
+};
+
 export const TimingDetails: React.FC<TimingDetailsProps> = ({ selectedCycle, hideHeader }) => {
-    const formatDuration = (start: number | null, end: number | null): string => {
-        if (!start || !end) return '...';
-        const duration = end - start;
-        if (isNaN(duration)) return '...';
-        return `${(duration / 1000).toFixed(1)}s`;
-    };
-
-    if (!selectedCycle) return null;
-
     const timings = selectedCycle.timings;
 
     return (
-        <div>
-            {!hideHeader && (
-                <div style={componentStyles.panelHeader}>
-                    <h3 style={componentStyles.panelTitle}>Timing Details</h3>
-                </div>
-            )}
-            <div style={{ 
-                display: 'flex',
-                gap: '16px',
-                fontSize: '11px',
-                opacity: 0.8,
-                padding: '8px'
-            }}>
-                <div>
-                    <span style={{ marginRight: '4px', opacity: 0.7 }}>Initial Build:</span>
-                    {formatDuration(timings.initialBuildStartTime, timings.initialBuildEndTime)}
-                </div>
-                <div>
-                    <span style={{ marginRight: '4px', opacity: 0.7 }}>Initial Tests:</span>
-                    {formatDuration(timings.initialTestStartTime, timings.initialTestEndTime)}
-                </div>
-                {(selectedCycle.wasForced || 
-                  !selectedCycle.initialBuildState?.compiledSuccessfully || 
-                  selectedCycle.initialTestResults?.failedTests.length > 0 || 
-                  selectedCycle.initialTestResults?.erroredTests.length > 0) && (
-                    <>
-                        <div>
-                            <span style={{ marginRight: '4px', opacity: 0.7 }}>Generation:</span>
-                            {formatDuration(timings.codeGenerationStartTime, timings.codeGenerationEndTime)}
-                        </div>
-                        <div>
-                            <span style={{ marginRight: '4px', opacity: 0.7 }}>Final Build:</span>
-                            {formatDuration(timings.finalBuildStartTime, timings.finalBuildEndTime)}
-                        </div>
-                        <div>
-                            <span style={{ marginRight: '4px', opacity: 0.7 }}>Final Tests:</span>
-                            {formatDuration(timings.finalTestStartTime, timings.finalTestEndTime)}
-                        </div>
-                    </>
-                )}
-                <div>
-                    <span style={{ marginRight: '4px', opacity: 0.7 }}>Total:</span>
-                    {formatDuration(timings.cycleStartTime, timings.cycleEndTime || null)}
-                </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {!hideHeader && <h4 style={{ marginBottom: '4px' }}>Timing Details</h4>}
+            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px' }}>
+                <span style={{ opacity: 0.7 }}>Model:</span>
+                <span>{selectedCycle.model || '-'}</span>
+                
+                {timings.phaseTimings.map((phase: PhaseTimings, index: number) => (
+                    <React.Fragment key={index}>
+                        <span style={{ opacity: 0.7 }}>{Status[phase.status]}:</span>
+                        <span>{formatDurationMs(phase.endTime && phase.startTime ? phase.endTime - phase.startTime : undefined)}</span>
+                    </React.Fragment>
+                ))}
+
+                <span style={{ opacity: 0.7, marginTop: '4px' }}>Total:</span>
+                <span style={{ marginTop: '4px' }}>{formatDurationMs(timings.cycleEndTime && timings.cycleStartTime ? timings.cycleEndTime - timings.cycleStartTime : undefined)}</span>
             </div>
         </div>
     );

@@ -15,15 +15,63 @@ export class DiffProvider {
             const originalUri = vscode.Uri.file(originalFile);
             const modifiedUri = vscode.Uri.file(modifiedFile);
 
+            // Get the language ID from the original file (without .orig)
+            const languageId = this.getLanguageId(originalFile.replace(/\.orig$/, ''));
+
             await vscode.commands.executeCommand('vscode.diff',
                 originalUri,
                 modifiedUri,
-                title
+                title,
+                {
+                    preview: true,
+                    originalLanguageId: languageId,
+                    modifiedLanguageId: languageId
+                }
             );
         } catch (error) {
             console.error('Error showing diff:', error);
             vscode.window.showErrorMessage(`Failed to show diff: ${error}`);
         }
+    }
+
+    /**
+     * Get the VS Code language ID based on file extension
+     */
+    private getLanguageId(filePath: string): string {
+        const ext = path.extname(filePath).toLowerCase();
+        const languageMap: { [key: string]: string } = {
+            '.ts': 'typescript',
+            '.tsx': 'typescriptreact',
+            '.js': 'javascript',
+            '.jsx': 'javascriptreact',
+            '.py': 'python',
+            '.java': 'java',
+            '.cpp': 'cpp',
+            '.c': 'c',
+            '.cs': 'csharp',
+            '.go': 'go',
+            '.rs': 'rust',
+            '.swift': 'swift',
+            '.rb': 'ruby',
+            '.php': 'php',
+            '.html': 'html',
+            '.css': 'css',
+            '.scss': 'scss',
+            '.less': 'less',
+            '.json': 'json',
+            '.md': 'markdown',
+            '.yaml': 'yaml',
+            '.yml': 'yaml',
+            '.xml': 'xml',
+            '.sh': 'shellscript',
+            '.bash': 'shellscript',
+            '.zsh': 'shellscript',
+            '.gradle': 'gradle',
+            '.kt': 'kotlin',
+            '.kts': 'kotlin'
+        };
+
+        return languageMap[ext] || 'plaintext';
     }
 
     private _documents = new Map<string, vscode.TextDocument>();

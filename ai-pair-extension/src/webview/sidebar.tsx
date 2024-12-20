@@ -7,6 +7,45 @@ import { StatusBar } from './components/statusbar/StatusBar';
 import { WelcomeComponent } from './components/WelcomeComponent';
 import { getVSCodeAPI } from './vscodeApi';
 
+const cycleStyles = {
+  cycleContainer: {
+    width: '100%',
+    borderBottom: '1px solid var(--vscode-panel-border)',
+    backgroundColor: 'var(--vscode-sideBar-background)',
+  },
+  cycleHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '8px 12px',
+    width: '100%',
+    cursor: 'pointer',
+    gap: '8px',
+  },
+  cycleContent: {
+    padding: '12px',
+    width: '100%',
+  },
+  cycleNumber: {
+    minWidth: '24px',
+    height: '24px',
+    borderRadius: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'var(--vscode-badge-background)',
+    color: 'var(--vscode-badge-foreground)',
+  },
+  phaseContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flex: 1,
+  },
+  chevron: {
+    marginLeft: 'auto',
+  }
+};
+
 export const Sidebar: React.FC = () => {
     // Get vscode API using React.useMemo to ensure it's only created once
     const vscodeApi = React.useMemo(() => getVSCodeAPI(), []);

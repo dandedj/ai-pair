@@ -40,14 +40,14 @@ abstract class BaseAIClient {
     }
 
     logRequest(prompt: string, logDir: string): string {
-        const requestLogPath = path.join(logDir, 'request.log');
+        const requestLogPath = path.join(logDir, 'generation_request.log');
         const logString = `Model: ${this.model}\n${prompt}\n`;
         fs.writeFileSync(requestLogPath, logString);
         return requestLogPath;
     }
 
     logResponse(response: string, logDir: string): string {
-        const responseLogPath = path.join(logDir, 'response.log');
+        const responseLogPath = path.join(logDir, 'generation_response.log');
         fs.writeFileSync(responseLogPath, response);
         return responseLogPath;
     }

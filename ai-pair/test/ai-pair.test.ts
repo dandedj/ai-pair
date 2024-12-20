@@ -78,7 +78,8 @@ describe('AIPair', () => {
             openaiApiKey: 'test-openai-key',
             promptsPath: '/test/prompts',
             srcDir: '/test/project/src',
-            testDir: '/test/project/test',
+            testSourceDir: '/test/project/test',
+            testResultsDir: '/test/project/build/test-results',
             extension: '.ts'
         };
         config = new Config(configOptions);
@@ -104,9 +105,11 @@ describe('AIPair', () => {
 
         // Mock test utilities
         const mockRunTests = testUtils.runTests as MockRunTests;
-        mockRunTests.mockImplementation(async (config, state) => {
-            state.buildState.compiledSuccessfully = true;
-            state.testResults.testsPassed = true;
+        mockRunTests.mockImplementation(async (config, currentCycle) => {
+            if (currentCycle) {
+                currentCycle.initialBuildState.compiledSuccessfully = true;
+                currentCycle.initialTestResults.testsPassed = true;
+            }
         });
 
         // Mock file utilities
@@ -124,45 +127,51 @@ describe('AIPair', () => {
             
             expect(result).toBe(true);
             expect(mockGenerateResponse).not.toHaveBeenCalled();
-            expect(runningState.generationCycleDetails.length).toBe(0);
-            expect(runningState.buildState.compiledSuccessfully).toBe(true);
-            expect(runningState.testResults.testsPassed).toBe(true);
+            expect(runningState.generationCycleDetails.length).toBe(1);
+            expect(runningState.currentCycle?.finalBuildState.compiledSuccessfully).toBe(true);
+            expect(runningState.currentCycle?.finalTestResults.testsPassed).toBe(true);
         });
 
         it('should continue generation when tests fail initially', async () => {
             const mockRunTests = testUtils.runTests as MockRunTests;
             // Mock failing tests initially
             mockRunTests
-                .mockImplementationOnce(async (config, state) => {
-                    state.buildState.compiledSuccessfully = true;
-                    state.testResults.testsPassed = false;
+                .mockImplementationOnce(async (config, currentCycle) => {
+                    if (currentCycle) {
+                        currentCycle.initialBuildState.compiledSuccessfully = true;
+                        currentCycle.initialTestResults.testsPassed = false;
+                    }
                 })
-                .mockImplementationOnce(async (config, state) => {
-                    state.buildState.compiledSuccessfully = true;
-                    state.testResults.testsPassed = true;
+                .mockImplementationOnce(async (config, currentCycle) => {
+                    if (currentCycle) {
+                        currentCycle.finalBuildState.compiledSuccessfully = true;
+                        currentCycle.finalTestResults.testsPassed = true;
+                    }
                 });
 
             const result = await aiPair.performCodeGenerationCycle(false);
             
             expect(result).toBe(true);
             expect(mockGenerateResponse).toHaveBeenCalled();
-            expect(runningState.buildState.compiledSuccessfully).toBe(true);
-            expect(runningState.testResults.testsPassed).toBe(true);
+            expect(runningState.currentCycle?.finalBuildState.compiledSuccessfully).toBe(true);
+            expect(runningState.currentCycle?.finalTestResults.testsPassed).toBe(true);
         });
 
         it('should handle build failures correctly', async () => {
             const mockRunTests = testUtils.runTests as MockRunTests;
             // Mock build failure
-            mockRunTests.mockImplementation(async (config, state) => {
-                state.buildState.compiledSuccessfully = false;
-                state.testResults.testsPassed = false;
+            mockRunTests.mockImplementation(async (config, currentCycle) => {
+                if (currentCycle) {
+                    currentCycle.initialBuildState.compiledSuccessfully = false;
+                    currentCycle.initialTestResults.testsPassed = false;
+                }
             });
 
             const result = await aiPair.performCodeGenerationCycle(false);
             
             expect(result).toBe(false);
             expect(mockGenerateResponse).toHaveBeenCalled();
-            expect(runningState.buildState.compiledSuccessfully).toBe(false);
+            expect(runningState.currentCycle?.initialBuildState.compiledSuccessfully).toBe(false);
         });
 
         it('should force generation when force flag is true', async () => {
@@ -172,14 +181,6 @@ describe('AIPair', () => {
             expect(testUtils.runTests).toHaveBeenCalledTimes(1);
         });
 
-        it('should properly reset cycle state', async () => {
-            // Set some initial state
-            runningState.cycleStartTime = new Date(2000, 1, 1);
-            
-            await aiPair.performCodeGenerationCycle(false);
-            
-            expect(runningState.cycleStartTime).not.toEqual(new Date(2000, 1, 1));
-        });
     });
 
     describe('performCodeGenerationCyclesWithRetries', () => {
@@ -192,10 +193,11 @@ describe('AIPair', () => {
 
         it('should retry up to max attempts on failure', async () => {
             const mockRunTests = testUtils.runTests as MockRunTests;
-            // Mock failing tests
-            mockRunTests.mockImplementation(async (config, state) => {
-                state.buildState.compiledSuccessfully = true;
-                state.testResults.testsPassed = false;
+            mockRunTests.mockImplementation(async (config, currentCycle) => {
+                if (currentCycle) {
+                    currentCycle.initialBuildState.compiledSuccessfully = true;
+                    currentCycle.initialTestResults.testsPassed = false;
+                }
             });
 
             await aiPair.performCodeGenerationCyclesWithRetries(false);
@@ -206,12 +208,11 @@ describe('AIPair', () => {
 
         it('should only apply force on first attempt', async () => {
             const mockRunTests = testUtils.runTests as MockRunTests;
-            
-            // Mock the test runs
-            mockRunTests.mockImplementation(async (config, state) => {
-                // First run after forced generation should succeed
-                state.buildState.compiledSuccessfully = true;
-                state.testResults.testsPassed = true;
+            mockRunTests.mockImplementation(async (config, currentCycle) => {
+                if (currentCycle) {
+                    currentCycle.initialBuildState.compiledSuccessfully = true;
+                    currentCycle.initialTestResults.testsPassed = true;
+                }
             });
 
             // Mock generate response to simulate code generation
@@ -226,10 +227,11 @@ describe('AIPair', () => {
 
         it('should switch to o1-preview model on last retry', async () => {
             const mockRunTests = testUtils.runTests as MockRunTests;
-            // Mock failing tests
-            mockRunTests.mockImplementation(async (config, state) => {
-                state.buildState.compiledSuccessfully = true;
-                state.testResults.testsPassed = false;
+            mockRunTests.mockImplementation(async (config, currentCycle) => {
+                if (currentCycle) {
+                    currentCycle.initialBuildState.compiledSuccessfully = true;
+                    currentCycle.initialTestResults.testsPassed = false;
+                }
             });
 
             config.numRetries = 2;
@@ -250,35 +252,31 @@ describe('AIPair', () => {
 
         it('should generate code to fix failing tests', async () => {
             const mockRunTests = testUtils.runTests as MockRunTests;
-            // Mock failing tests
-            mockRunTests.mockImplementation(async (config, state) => {
-                state.buildState.compiledSuccessfully = true;
-                state.testResults.testsPassed = false;
+            mockRunTests.mockImplementation(async (config, currentCycle) => {
+                if (currentCycle) {
+                    currentCycle.initialBuildState.compiledSuccessfully = true;
+                    currentCycle.initialTestResults.testsPassed = false;
+                }
             });
-
-            // ... rest of test ...
         });
 
         it('should force code generation after multiple failures', async () => {
-            // Mock the test runs
-            mockRunTests.mockImplementation(async (config, state) => {
-                // First run after forced generation should succeed
-                state.buildState.compiledSuccessfully = true;
-                state.testResults.testsPassed = true;
+            mockRunTests.mockImplementation(async (config, currentCycle) => {
+                if (currentCycle) {
+                    currentCycle.initialBuildState.compiledSuccessfully = true;
+                    currentCycle.initialTestResults.testsPassed = true;
+                }
             });
-
-            // ... rest of test ...
         });
 
         it('should handle build failures', async () => {
             const mockRunTests = testUtils.runTests as MockRunTests;
-            // Mock failing tests
-            mockRunTests.mockImplementation(async (config, state) => {
-                state.buildState.compiledSuccessfully = true;
-                state.testResults.testsPassed = false;
+            mockRunTests.mockImplementation(async (config, currentCycle) => {
+                if (currentCycle) {
+                    currentCycle.initialBuildState.compiledSuccessfully = true;
+                    currentCycle.initialTestResults.testsPassed = false;
+                }
             });
-
-            // ... rest of test ...
         });
     });
 }); 

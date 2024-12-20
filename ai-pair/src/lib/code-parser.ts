@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { Config } from 'ai-pair-types';
-import { RunningState, CodeChangeSummary } from 'ai-pair-types';
+import { CodeChangeSummary, GenerationCycleDetails } from 'ai-pair-types';
 import { logger } from './logger';
 import { fileExists, isBuildFile, isTestFile, safeWriteFile } from './file-utils';
 
@@ -15,7 +15,7 @@ interface FileBlock {
  */
 export function parseAndApplyGeneratedCode(
     config: Config,
-    runningState: RunningState,
+    currentCycle: GenerationCycleDetails | null,
     generatedCode: string
 ): CodeChangeSummary {
     const codeChanges: CodeChangeSummary = initializeCodeChangeSummary();
@@ -26,7 +26,7 @@ export function parseAndApplyGeneratedCode(
         return codeChanges;
     }
 
-    const changesDir = prepareChangesDirectory(config.tmpDir, runningState.generationCycleDetails.length);
+    const changesDir = prepareChangesDirectory(config.tmpDir, currentCycle?.cycleNumber || 0);
 
     fileBlocks.forEach((block) => processFileBlock(block, config, changesDir, codeChanges));
 
@@ -108,7 +108,8 @@ function applyChangesToProject(
     const relativePath = path.relative(config.projectRoot, filePath);
 
     if (isTestFile(relativePath)) {
-        logger.warn(`Skipped modification of test file: '${relativePath}'`);
+        logger.warn(`Test file change detected but not applied: '${relativePath}'`);
+        codeChanges.testFiles.push(relativePath);
         return;
     }
 
@@ -153,6 +154,9 @@ function logCodeChanges(codeChanges: CodeChangeSummary): void {
     if (codeChanges.buildFiles.length > 0) {
         logger.info(`Updated build files: ${codeChanges.buildFiles.join(', ')}`);
     }
+    if (codeChanges.testFiles.length > 0) {
+        logger.info(`Test file changes detected (not applied): ${codeChanges.testFiles.join(', ')}`);
+    }
 }
 
 /**
@@ -164,6 +168,7 @@ function initializeCodeChangeSummary(): CodeChangeSummary {
         newFiles: [],
         deletedFiles: [],
         modifiedFiles: [],
-        buildFiles: []
+        buildFiles: [],
+        testFiles: []
     };
 }

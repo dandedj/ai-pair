@@ -4,12 +4,15 @@ interface CodeChangeSummary {
     deletedFiles: string[];
     modifiedFiles: string[];
     buildFiles: string[];
+    testFiles: string[];
 }
 interface TestResults {
     testsPassed: boolean;
     failedTests: string[];
     passedTests: string[];
     erroredTests: string[];
+    testOutput: string;
+    testsCompiledSuccessfully: boolean;
 }
 interface BuildState {
     compiledSuccessfully: boolean;
@@ -19,19 +22,15 @@ interface CodeFile {
     path: string;
     content: string;
 }
+interface PhaseTimings {
+    status: Status;
+    startTime: number | null;
+    endTime: number | null;
+}
 interface CycleTimings {
     cycleStartTime: number;
     cycleEndTime: number | null;
-    initialBuildStartTime: number | null;
-    initialBuildEndTime: number | null;
-    initialTestStartTime: number | null;
-    initialTestEndTime: number | null;
-    codeGenerationStartTime: number | null;
-    codeGenerationEndTime: number | null;
-    finalBuildStartTime: number | null;
-    finalBuildEndTime: number | null;
-    finalTestStartTime: number | null;
-    finalTestEndTime: number | null;
+    phaseTimings: PhaseTimings[];
 }
 interface GenerationCycleDetails {
     status: Status;
@@ -58,18 +57,10 @@ declare enum Status {
 export declare function getStatusDisplay(status: Status): string;
 export declare class RunningState {
     private _generationCycleDetails;
-    private _currentCycle;
-    private _changeListeners;
-    private _buildState;
-    private _testResults;
-    private _codeChanges;
-    private _accumulatedHints;
-    private _cycleStartTime;
     private _listeners;
-    private _currentCycleIndex;
+    private _accumulatedHints;
     constructor();
     get currentCycle(): GenerationCycleDetails | null;
-    get currentCycleIndex(): number;
     get status(): Status;
     get generationCycleDetails(): GenerationCycleDetails[];
     get testResults(): TestResults;
@@ -78,15 +69,9 @@ export declare class RunningState {
     set buildState(value: BuildState);
     get codeChanges(): CodeChangeSummary;
     set codeChanges(value: CodeChangeSummary);
-    get cycleStartTime(): Date | null;
-    set cycleStartTime(value: Date | null);
-    private updateState;
-    resetState(): void;
-    startNewCycle(model: string): void;
+    startNewCycle(model: string): GenerationCycleDetails;
     updateCurrentCycleStatus(status: Status): void;
     endCurrentCycle(): void;
-    updateTimings(phase: keyof CycleTimings, isStart: boolean): void;
-    private notifyChangeListeners;
     private notifyListeners;
     onChange(listener: (state: RunningState) => void): () => void;
     addHint(hint: string): void;
@@ -94,6 +79,6 @@ export declare class RunningState {
     resetCycleState(): void;
     reset(): void;
     get accumulatedHints(): string[];
-    withPhase<T>(status: Status, phase: 'initialBuild' | 'initialTest' | 'codeGeneration' | 'finalBuild' | 'finalTest', fn: () => Promise<T>): Promise<T>;
+    withPhase<T>(status: Status, fn: () => Promise<T>): Promise<T>;
 }
-export { CodeFile, CodeChangeSummary, Status, TestResults, BuildState, GenerationCycleDetails, CycleTimings };
+export { CodeFile, CodeChangeSummary, Status, TestResults, BuildState, GenerationCycleDetails, CycleTimings, PhaseTimings };

@@ -1,23 +1,24 @@
-import * as vscode from 'vscode';
-import { getNonce } from './Utils';
-import { AIPairService } from './AIPairService';
 import * as path from 'path';
+import * as vscode from 'vscode';
+import { AIPairService } from './AIPairService';
 import { DiffProvider } from './DiffProvider';
-import * as fs from 'fs';
-import { WebviewMessage } from './types/WebviewMessage';
 import { LogPanelManager } from './LogPanelManager';
+import { WebviewMessage } from './types/WebviewMessage';
+import { getNonce } from './Utils';
 
 export class SidebarManager implements vscode.WebviewViewProvider {
     public static readonly viewType = 'ai-pair-extension.configView';
 
     private _service: AIPairService;
     private _logPanelManager: LogPanelManager;
+    private _diffProvider: DiffProvider;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
     ) {
         this._service = AIPairService.getInstance();
         this._logPanelManager = new LogPanelManager(path.join(this._service.config?.tmpDir || '', 'ai-pair.log'));
+        this._diffProvider = new DiffProvider();
     }
 
     dispose() {
@@ -83,27 +84,31 @@ export class SidebarManager implements vscode.WebviewViewProvider {
                     const logPath = path.join(
                         this._service.config.tmpDir,
                         `generationCycle${data.cycleNumber}`,
-                        `${data.stage}_${data.logType}_result.log`
+                        `${data.logType}_${data.stage}.log`
                     );
                     await this._logPanelManager.viewLogFile(logPath);
                     break;
                 }
 
                 case 'viewDiff': {
-                    const cycleDir = path.join(
-                        this._service.config.tmpDir,
-                        `generationCycle${data.cycleNumber}`,
-                        'changes'
-                    );
-                    
-                    const originalPath = path.join(cycleDir, data.originalPath);
-                    const modifiedPath = path.join(cycleDir, data.filePath);
+                    const { cycleNumber, filePath } = data;
+                    if (!cycleNumber || !filePath || !this._service.config) {
+                        console.error('Missing required parameters or config for viewDiff:', data);
+                        return;
+                    }
 
-                    await vscode.commands.executeCommand('vscode.diff',
-                        vscode.Uri.file(originalPath),
-                        vscode.Uri.file(modifiedPath),
-                        `Changes to ${data.filePath}`
-                    );
+                    try {
+                        if (!this._service.config) {
+                            throw new Error('Configuration not found');
+                        }
+                        await this._diffProvider.showDiff(
+                            path.join(this._service.config.tmpDir, `generationCycle${cycleNumber}`, 'changes', `${filePath}.orig`),
+                            path.join(this._service.config.tmpDir, `generationCycle${cycleNumber}`, 'changes', filePath),
+                            `Changes to ${filePath}`
+                        );
+                    } catch (error) {
+                        console.error('Error showing diff:', error);
+                    }
                     break;
                 }
 
@@ -146,5 +151,32 @@ export class SidebarManager implements vscode.WebviewViewProvider {
                 <script nonce="${nonce}" src="${scriptUri}"></script>
             </body>
             </html>`;
+    }
+
+    private async handleMessage(message: any): Promise<void> {
+        switch (message.type) {
+            case 'viewDiff': {
+                const { cycleNumber, filePath } = message;
+                if (!cycleNumber || !filePath) {
+                    console.error('Missing required parameters for viewDiff:', message);
+                    return;
+                }
+
+                try {
+                    if (!this._service.config) {
+                        throw new Error('Configuration not found');
+                    }
+                    await this._diffProvider.showDiff(
+                        path.join(this._service.config.tmpDir, `generationCycle${cycleNumber}`, 'changes', `${filePath}.orig`),
+                        path.join(this._service.config.tmpDir, `generationCycle${cycleNumber}`, 'changes', filePath),
+                        `Changes to ${filePath}`
+                    );
+                } catch (error) {
+                    console.error('Error showing diff:', error);
+                }
+                break;
+            }
+            // ... other message handlers ...
+        }
     }
 } 

@@ -2,7 +2,8 @@ export interface ConfigOptions {
     model: string;
     projectRoot: string;
     srcDir: string;
-    testDir: string;
+    testSourceDir: string;
+    testResultsDir: string;
     promptsPath: string;
     tmpDir: string;
     logLevel: string;
@@ -21,7 +22,8 @@ interface ConfigData {
     model: string;
     projectRoot: string;
     srcDir: string;
-    testDir: string;
+    testSourceDir: string;
+    testResultsDir: string;
     extension?: string;
     anthropicApiKey?: string;
     openaiApiKey?: string;
@@ -45,7 +47,8 @@ class Config {
     projectRoot: string;
     extension: string;
     srcDir: string;
-    testDir: string;
+    testSourceDir: string;
+    testResultsDir: string;
     apiKeys: { [key: string]: string };
     logLevel: string;
     tmpDir: string;
@@ -64,7 +67,8 @@ class Config {
         this.model = configData.model;
         this.projectRoot = configData.projectRoot;
         this.srcDir = configData.srcDir;
-        this.testDir = configData.testDir;
+        this.testSourceDir = configData.testSourceDir;
+        this.testResultsDir = configData.testResultsDir;
         this.extension = configData.extension || '.java';
         this.tmpDir = configData.tmpDir;
         this.promptsPath = configData.promptsPath;

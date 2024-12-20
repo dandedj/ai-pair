@@ -1,7 +1,6 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import { readFile, open } from 'fs/promises';
 import { existsSync, statSync } from 'fs';
+import { open } from 'fs/promises';
+import * as vscode from 'vscode';
 
 export class LogPanelManager {
     private _lastLogPosition: number = 0;

@@ -43,7 +43,12 @@ export const CycleDetails: React.FC<CycleDetailsProps> = ({
                                 />
                                 {expandedCycles.has(cycle.cycleNumber) && (
                                     <tr>
-                                        <td colSpan={6} style={{ padding: '0', width: '100%' }}>
+                                        <td colSpan={3} style={{ 
+                                            padding: '0', 
+                                            width: '100%',
+                                            minWidth: '300px',
+                                            boxSizing: 'border-box'
+                                        }}>
                                             <CycleDetail cycle={cycle} />
                                         </td>
                                     </tr>

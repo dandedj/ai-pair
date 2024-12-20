@@ -124,7 +124,7 @@ export class AIPairService {
                 ...this._runningState.codeChanges,
                 lastChangeTime: this._runningState.codeChanges.lastChangeTime?.toISOString() ?? null
             },
-            cycleStartTime: this._runningState.cycleStartTime?.toISOString() ?? null
+            cycleStartTime: this._runningState.currentCycle?.timings.cycleStartTime.toString() ?? null
         };
 
         webview.postMessage({
@@ -169,7 +169,7 @@ export class AIPairService {
         if (!this._aiPair) {
             throw new Error('AI Pair not initialized');
         }
-        this._runningState.resetState();
+        this._runningState.reset();
         this.notifyAllWebviews();
     }
 

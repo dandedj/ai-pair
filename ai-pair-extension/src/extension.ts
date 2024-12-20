@@ -7,6 +7,7 @@ import { ExtensionLogger } from './ExtensionLogger';
 import { FileWatcher } from './FileWatcher';
 import { SidebarManager } from './SidebarManager';
 import { StatusBarManager } from './StatusBarManager';
+import * as path from 'path';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed

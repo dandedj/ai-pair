@@ -6,7 +6,8 @@ class Config {
         this.model = configData.model;
         this.projectRoot = configData.projectRoot;
         this.srcDir = configData.srcDir;
-        this.testDir = configData.testDir;
+        this.testSourceDir = configData.testSourceDir;
+        this.testResultsDir = configData.testResultsDir;
         this.extension = configData.extension || '.java';
         this.tmpDir = configData.tmpDir;
         this.promptsPath = configData.promptsPath;

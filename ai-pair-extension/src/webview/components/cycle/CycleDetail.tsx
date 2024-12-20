@@ -9,33 +9,45 @@ import { TimingDetails } from './TimingDetails';
 import { ViewLogsLink } from '../common/ViewLogsLink';
 import { LoadingDots } from '../common/LoadingDots';
 import { getVSCodeAPI } from '../../vscodeApi';
+import { CycleTimings } from 'ai-pair-types';
 
 interface CycleDetailProps {
     cycle: GenerationCycleDetails;
 }
 
-interface FileChange {
-    filePath: string;
-    changeType: 'add' | 'modify' | 'delete';
-}
+const getBuildDuration = (timings: CycleTimings, status: Status): number | undefined => {
+    const phase = timings.phaseTimings.find(p => p.status === status);
+    return phase?.startTime && phase?.endTime ? phase.endTime - phase.startTime : undefined;
+};
 
 export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
     const vscodeApi = React.useMemo(() => getVSCodeAPI(), []);
 
     return (
-        <DetailBox>
+        <div
+            className="cycle-detail-container"
+            style={{
+                width: '100%',
+                overflowX: 'hidden',
+                margin: '0',
+                boxSizing: 'border-box'
+            }}
+        >
             <DetailSection title="Checking for problems" style={{ width: '100%' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: cycle.initialBuildState?.compiledSuccessfully && cycle.status !== Status.BUILDING ? '12px' : '0', 
+                    width: '100%' 
+                }}>
                     <BuildState
                         isCompiled={cycle.initialBuildState?.compiledSuccessfully || false}
                         isLoading={cycle.status === Status.BUILDING}
-                        buildDuration={cycle.timings?.initialBuildStartTime && cycle.timings?.initialBuildEndTime ? 
-                            new Date(cycle.timings.initialBuildEndTime).getTime() - new Date(cycle.timings.initialBuildStartTime).getTime() : 
-                            undefined}
+                        buildDuration={getBuildDuration(cycle.timings, Status.BUILDING)}
                         cycleNumber={cycle.cycleNumber}
                         isFinal={false}
                     />
-                    {cycle.initialBuildState?.compiledSuccessfully && (
+                    {cycle.initialBuildState?.compiledSuccessfully && cycle.status !== Status.BUILDING && (
                         <TestResults
                             passedTests={cycle.initialTestResults?.passedTests || []}
                             failedTests={cycle.initialTestResults?.failedTests || []}
@@ -43,6 +55,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                             isLoading={cycle.status === Status.TESTING}
                             cycleNumber={cycle.cycleNumber}
                             isFinal={false}
+                            testsCompiledSuccessfully={cycle.initialTestResults?.testsCompiledSuccessfully ?? true}
                         />
                     )}
                 </div>
@@ -53,18 +66,26 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                     title="Generating fixes"
                     headerActions={
                         <div style={{ display: 'flex', gap: '16px' }}>
-                            <ViewLogsLink 
-                                label="Request"
-                                logType="generation"
-                                cycleNumber={cycle.cycleNumber}
-                                stage="initial"
-                            />
-                            <ViewLogsLink 
-                                label="Response"
-                                logType="generation"
-                                cycleNumber={cycle.cycleNumber}
-                                stage="response"
-                            />
+                            {cycle.timings.phaseTimings.some(p => 
+                                p.status === Status.GENERATING_CODE && p.endTime !== undefined
+                            ) && (
+                                <ViewLogsLink 
+                                    label="Request"
+                                    logType="generation"
+                                    cycleNumber={cycle.cycleNumber}
+                                    stage="request"
+                                />
+                            )}
+                            {cycle.timings.phaseTimings.some(p => 
+                                p.status === Status.GENERATING_CODE && p.endTime !== undefined
+                            ) && cycle.codeChanges && (
+                                <ViewLogsLink 
+                                    label="Response"
+                                    logType="generation"
+                                    cycleNumber={cycle.cycleNumber}
+                                    stage="response"
+                                />
+                            )}
                         </div>
                     }
                 >
@@ -85,6 +106,10 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                                     ...(cycle.codeChanges?.deletedFiles || []).map((file: string) => ({
                                         filePath: file,
                                         changeType: 'delete' as const,
+                                    })),
+                                    ...(cycle.codeChanges?.testFiles || []).map((file: string) => ({
+                                        filePath: file,
+                                        changeType: 'test' as const,
                                     }))
                                 ]}
                                 onViewDiff={(filePath) => {
@@ -106,9 +131,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                         <BuildState
                             isCompiled={cycle.finalBuildState?.compiledSuccessfully || false}
                             isLoading={cycle.status === Status.REBUILDING}
-                            buildDuration={cycle.timings?.finalBuildStartTime && cycle.timings?.finalBuildEndTime ? 
-                                new Date(cycle.timings.finalBuildEndTime).getTime() - new Date(cycle.timings.finalBuildStartTime).getTime() : 
-                                undefined}
+                            buildDuration={getBuildDuration(cycle.timings, Status.REBUILDING)}
                             cycleNumber={cycle.cycleNumber}
                             isFinal={true}
                         />
@@ -120,6 +143,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                                 isLoading={cycle.status === Status.RETESTING}
                                 cycleNumber={cycle.cycleNumber}
                                 isFinal={true}
+                                testsCompiledSuccessfully={cycle.finalTestResults?.testsCompiledSuccessfully ?? true}
                             />
                         )}
                     </div>
@@ -131,6 +155,6 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                     <TimingDetails selectedCycle={cycle} hideHeader />
                 </DetailSection>
             )}
-        </DetailBox>
+        </div>
     );
 }; 

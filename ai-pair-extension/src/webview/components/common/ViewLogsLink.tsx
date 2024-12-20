@@ -22,8 +22,20 @@ export const ViewLogsLink: React.FC<ViewLogsLinkProps> = ({ label, logType, cycl
     };
 
     return (
-        <div className="view-logs-link" onClick={handleClick}>
+        <a 
+            href="#"
+            onClick={(e) => {
+                e.preventDefault();
+                handleClick();
+            }}
+            style={{
+                fontSize: '11px',
+                color: 'var(--vscode-textLink-foreground)',
+                textDecoration: 'none',
+                cursor: 'pointer'
+            }}
+        >
             {label}
-        </div>
+        </a>
     );
 }; 

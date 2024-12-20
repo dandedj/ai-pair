@@ -29,139 +29,99 @@ exports.getStatusDisplay = getStatusDisplay;
 class RunningState {
     constructor() {
         this._generationCycleDetails = [];
-        this._currentCycle = null;
-        this._changeListeners = [];
         this._listeners = [];
-        this._buildState = {
-            compiledSuccessfully: false,
-            compilerOutput: ""
-        };
-        this._testResults = {
-            passedTests: [],
-            failedTests: [],
-            erroredTests: [],
-            testsPassed: false,
-        };
-        this._codeChanges = {
-            lastChangeTime: null,
-            newFiles: [],
-            deletedFiles: [],
-            modifiedFiles: [],
-            buildFiles: [],
-        };
         this._accumulatedHints = [];
-        this._cycleStartTime = null;
-        this._changeListeners = [];
+        this._generationCycleDetails = [];
+        this._accumulatedHints = [];
         this._listeners = [];
-        this._currentCycleIndex = -1;
     }
     get currentCycle() {
         return this._generationCycleDetails.length > 0
             ? this._generationCycleDetails[this._generationCycleDetails.length - 1]
             : null;
     }
-    get currentCycleIndex() {
-        return this._currentCycleIndex;
-    }
     get status() {
-        if (!this.currentCycle) {
-            return Status.IDLE;
-        }
-        return this.currentCycle.status;
+        return this.currentCycle?.status ?? Status.IDLE;
     }
     get generationCycleDetails() {
         return this._generationCycleDetails;
     }
     get testResults() {
-        return this._testResults;
+        return this.currentCycle?.finalTestResults ?? {
+            testsPassed: false,
+            failedTests: [],
+            passedTests: [],
+            erroredTests: [],
+            testOutput: "",
+            testsCompiledSuccessfully: false
+        };
     }
     set testResults(value) {
-        this._testResults = value;
-        if (this._currentCycleIndex >= 0) {
-            this._generationCycleDetails[this._currentCycleIndex].finalTestResults = value;
-        }
-        this.notifyListeners();
-    }
-    get buildState() {
-        return this._buildState;
-    }
-    set buildState(value) {
-        this._buildState = value;
-        if (this._currentCycleIndex >= 0) {
-            this._generationCycleDetails[this._currentCycleIndex].initialBuildState = value;
-        }
-        this.notifyListeners();
-    }
-    get codeChanges() {
-        return this._codeChanges;
-    }
-    set codeChanges(value) {
-        this._codeChanges = value;
-        if (this._currentCycleIndex >= 0) {
-            this._generationCycleDetails[this._currentCycleIndex].codeChanges = value;
-        }
-        this.notifyListeners();
-    }
-    get cycleStartTime() {
-        return this._cycleStartTime;
-    }
-    set cycleStartTime(value) {
-        this._cycleStartTime = value;
-        this.notifyListeners();
-    }
-    updateState(updater) {
-        updater(this);
-        this.notifyChangeListeners();
-    }
-    resetState() {
-        this.updateState(state => {
-            state._generationCycleDetails = [];
-            state._currentCycle = null;
-        });
-    }
-    startNewCycle(model) {
-        this.updateState(state => {
-            const newCycle = {
-                model,
-                cycleNumber: state._generationCycleDetails.length + 1,
-                status: Status.IDLE,
-                initialBuildState: { compiledSuccessfully: false, compilerOutput: "" },
-                finalBuildState: { compiledSuccessfully: false, compilerOutput: "" },
-                initialTestResults: { testsPassed: false, passedTests: [], failedTests: [], erroredTests: [] },
-                finalTestResults: { testsPassed: false, passedTests: [], failedTests: [], erroredTests: [] },
-                codeChanges: { lastChangeTime: null, newFiles: [], deletedFiles: [], modifiedFiles: [], buildFiles: [] },
-                timings: { cycleStartTime: Date.now(), cycleEndTime: null, initialBuildStartTime: null, initialBuildEndTime: null, initialTestStartTime: null, initialTestEndTime: null, codeGenerationStartTime: null, codeGenerationEndTime: null, finalBuildStartTime: null, finalBuildEndTime: null, finalTestStartTime: null, finalTestEndTime: null },
-                wasForced: false
-            };
-            state._currentCycle = newCycle;
-            state._generationCycleDetails.push(newCycle);
-        });
-    }
-    updateCurrentCycleStatus(status) {
-        console.log(`Updating cycle status from ${Status[this.status]} to ${Status[status]}`);
-        this.updateState(state => {
-            if (state._currentCycle) {
-                state._currentCycle.status = status;
-                this.notifyListeners();
-            }
-        });
-    }
-    endCurrentCycle() {
-        this.updateState(state => {
-            if (state._currentCycle) {
-                state._currentCycle.timings.cycleEndTime = Date.now();
-            }
-        });
-    }
-    updateTimings(phase, isStart) {
-        if (this._currentCycleIndex >= 0) {
-            const timingKey = isStart ? phase : phase.replace('Start', 'End');
-            this._generationCycleDetails[this._currentCycleIndex].timings[timingKey] = new Date().getTime();
+        if (this.currentCycle) {
+            this.currentCycle.finalTestResults = value;
             this.notifyListeners();
         }
     }
-    notifyChangeListeners() {
-        this._changeListeners.forEach(listener => listener(this));
+    get buildState() {
+        return this.currentCycle?.finalBuildState ?? {
+            compiledSuccessfully: false,
+            compilerOutput: ""
+        };
+    }
+    set buildState(value) {
+        if (this.currentCycle) {
+            this.currentCycle.finalBuildState = value;
+            this.notifyListeners();
+        }
+    }
+    get codeChanges() {
+        return this.currentCycle?.codeChanges ?? {
+            lastChangeTime: null,
+            newFiles: [],
+            deletedFiles: [],
+            modifiedFiles: [],
+            buildFiles: [],
+            testFiles: []
+        };
+    }
+    set codeChanges(value) {
+        if (this.currentCycle) {
+            this.currentCycle.codeChanges = value;
+            this.notifyListeners();
+        }
+    }
+    startNewCycle(model) {
+        const newCycle = {
+            model,
+            cycleNumber: this._generationCycleDetails.length + 1,
+            status: Status.IDLE,
+            initialBuildState: { compiledSuccessfully: false, compilerOutput: "" },
+            finalBuildState: { compiledSuccessfully: false, compilerOutput: "" },
+            initialTestResults: { testsPassed: false, passedTests: [], failedTests: [], erroredTests: [], testOutput: "", testsCompiledSuccessfully: false },
+            finalTestResults: { testsPassed: false, passedTests: [], failedTests: [], erroredTests: [], testOutput: "", testsCompiledSuccessfully: false },
+            codeChanges: { lastChangeTime: null, newFiles: [], deletedFiles: [], modifiedFiles: [], buildFiles: [], testFiles: [] },
+            timings: {
+                cycleStartTime: Date.now(),
+                cycleEndTime: null,
+                phaseTimings: []
+            },
+            wasForced: false
+        };
+        this._generationCycleDetails.push(newCycle);
+        this.notifyListeners();
+        return newCycle;
+    }
+    updateCurrentCycleStatus(status) {
+        if (this.currentCycle) {
+            this.currentCycle.status = status;
+            this.notifyListeners();
+        }
+    }
+    endCurrentCycle() {
+        if (this.currentCycle) {
+            this.currentCycle.timings.cycleEndTime = Date.now();
+            this.notifyListeners();
+        }
     }
     notifyListeners() {
         this._listeners.forEach(listener => listener(this));
@@ -183,56 +143,53 @@ class RunningState {
         this.notifyListeners();
     }
     resetCycleState() {
-        this._testResults = {
-            testsPassed: false,
-            failedTests: [],
-            passedTests: [],
-            erroredTests: []
-        };
-        this._buildState = {
-            compiledSuccessfully: false,
-            compilerOutput: "",
-        };
-        this.notifyListeners();
+        if (this.currentCycle) {
+            this.currentCycle.finalTestResults = {
+                testsPassed: false,
+                failedTests: [],
+                passedTests: [],
+                erroredTests: [],
+                testOutput: "",
+                testsCompiledSuccessfully: false
+            };
+            this.currentCycle.finalBuildState = {
+                compiledSuccessfully: false,
+                compilerOutput: "",
+            };
+            this.notifyListeners();
+        }
     }
     reset() {
-        this._buildState = {
-            compiledSuccessfully: false,
-            compilerOutput: "",
-        };
-        this._testResults = {
-            passedTests: [],
-            failedTests: [],
-            erroredTests: [],
-            testsPassed: false
-        };
-        this._codeChanges = {
-            lastChangeTime: null,
-            newFiles: [],
-            deletedFiles: [],
-            modifiedFiles: [],
-            buildFiles: [],
-        };
         this._generationCycleDetails = [];
         this._accumulatedHints = [];
-        this._cycleStartTime = null;
-        this._changeListeners = [];
         this.notifyListeners();
     }
     get accumulatedHints() {
         return this._accumulatedHints;
     }
-    async withPhase(status, phase, fn) {
-        console.log(`Starting phase: ${phase} with status: ${Status[status]}`);
+    async withPhase(status, fn) {
+        console.log(`Starting phase with status: ${Status[status]}`);
         this.updateCurrentCycleStatus(status);
-        this.updateTimings(`${phase}StartTime`, true);
+        if (this.currentCycle) {
+            const phaseTiming = {
+                status,
+                startTime: Date.now(),
+                endTime: null
+            };
+            this.currentCycle.timings.phaseTimings.push(phaseTiming);
+        }
         try {
             const result = await fn();
             return result;
         }
         finally {
-            this.updateTimings(`${phase}EndTime`, false);
-            console.log(`Finished phase: ${phase} with status: ${Status[this.status]}`);
+            if (this.currentCycle) {
+                const phaseTiming = this.currentCycle.timings.phaseTimings.find(t => t.status === status);
+                if (phaseTiming) {
+                    phaseTiming.endTime = Date.now();
+                }
+            }
+            console.log(`Finished phase with status: ${Status[status]}`);
         }
     }
 }

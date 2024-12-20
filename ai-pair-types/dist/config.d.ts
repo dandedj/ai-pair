@@ -2,7 +2,8 @@ export interface ConfigOptions {
     model: string;
     projectRoot: string;
     srcDir: string;
-    testDir: string;
+    testSourceDir: string;
+    testResultsDir: string;
     promptsPath: string;
     tmpDir: string;
     logLevel: string;
@@ -20,7 +21,8 @@ interface ConfigData {
     model: string;
     projectRoot: string;
     srcDir: string;
-    testDir: string;
+    testSourceDir: string;
+    testResultsDir: string;
     extension?: string;
     anthropicApiKey?: string;
     openaiApiKey?: string;
@@ -43,7 +45,8 @@ declare class Config {
     projectRoot: string;
     extension: string;
     srcDir: string;
-    testDir: string;
+    testSourceDir: string;
+    testResultsDir: string;
     apiKeys: {
         [key: string]: string;
     };

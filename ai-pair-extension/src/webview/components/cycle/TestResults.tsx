@@ -11,6 +11,7 @@ interface TestResultsProps {
     isLoading: boolean;
     cycleNumber: number;
     isFinal: boolean;
+    testsCompiledSuccessfully: boolean;
 }
 
 export const TestResults: React.FC<TestResultsProps> = ({ 
@@ -19,7 +20,8 @@ export const TestResults: React.FC<TestResultsProps> = ({
     erroredTests = [],
     isLoading = false,
     cycleNumber,
-    isFinal
+    isFinal,
+    testsCompiledSuccessfully = true
 }) => {
     const totalTests = passedTests.length + failedTests.length + erroredTests.length;
     const allPassed = failedTests.length === 0 && erroredTests.length === 0;
@@ -34,10 +36,15 @@ export const TestResults: React.FC<TestResultsProps> = ({
                         </>
                     ) : (
                         <>
-                            <span className={`codicon codicon-${allPassed ? 'pass-filled' : 'error'}`} 
-                                  style={{ color: allPassed ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-testing-iconFailed)' }}
+                            <span className={`codicon codicon-${allPassed && testsCompiledSuccessfully ? 'pass-filled' : 'error'}`} 
+                                  style={{ color: allPassed && testsCompiledSuccessfully ? 'var(--vscode-testing-iconPassed)' : 'var(--vscode-testing-iconFailed)' }}
                             />
                             <span>Tests</span>
+                            {!testsCompiledSuccessfully && (
+                                <span style={{ color: 'var(--vscode-testing-iconFailed)' }}>
+                                    - compilation failed
+                                </span>
+                            )}
                         </>
                     )}
                 </div>

@@ -8,5 +8,6 @@ export {
     BuildState,
     GenerationCycleDetails,
     CycleTimings,
+    PhaseTimings,
     getStatusDisplay
 } from './running-state'; 

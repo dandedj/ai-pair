@@ -97,27 +97,29 @@ class AIPair {
     async performCodeGenerationCycle(force = false): Promise<boolean> {
         this.runningState.resetCycleState();
         this.logger.debug(`Starting cycle ${this.runningState.generationCycleDetails.length + 1} with model: ${this.config.model}`);
-        this.runningState.startNewCycle(this.config.model);
+        const currentCycle = this.runningState.startNewCycle(this.config.model);
 
-        await this.runningState.withPhase(Status.BUILDING, 'initialBuild', async () => {
-            return await buildProject(this.config, this.runningState, false);
+        await this.runningState.withPhase(Status.BUILDING, async () => {
+            const result = await buildProject(this.config, currentCycle, false);
+            return result;
         });
 
-        if (this.runningState.currentCycle?.initialBuildState.compiledSuccessfully) {
-            await this.runningState.withPhase(Status.TESTING, 'initialTest', async () => {
-                await runTests(this.config, this.runningState, false);
+        if (currentCycle?.initialBuildState.compiledSuccessfully) {
+            await this.runningState.withPhase(Status.TESTING, async () => {
+                const result = await runTests(this.config, currentCycle, false);
+                return result;
             });
         }
 
-        if (!force && this.runningState.currentCycle?.initialBuildState.compiledSuccessfully && 
-            this.runningState.currentCycle?.initialTestResults.testsPassed) {
+        if (!force && currentCycle?.initialBuildState.compiledSuccessfully && 
+            currentCycle?.initialTestResults.testsPassed) {
             this.logger.info('Project compiles and all tests passed! No changes needed.');
             this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
             this.runningState.endCurrentCycle();
             return true;
         }
 
-        await this.runningState.withPhase(Status.GENERATING_CODE, 'codeGeneration', async () => {
+        await this.runningState.withPhase(Status.GENERATING_CODE, async () => {
             this.logger.debug('Collecting files for code generation');
 
             const buildGradlePath = path.join(this.config.projectRoot, 'build.gradle.kts');
@@ -150,17 +152,19 @@ class AIPair {
 
             this.logger.info(`Sending prompt to AI service : ${this.config.model}`);
 
-            // Pass cycleDir for logging
             const generatedCode = await this.client.generateResponse(prompt, systemPrompt, cycleDir);
-            const codeChanges = parseAndApplyGeneratedCode(this.config, this.runningState, generatedCode);
-            this.runningState.codeChanges = codeChanges;
+            const codeChanges = parseAndApplyGeneratedCode(this.config, currentCycle, generatedCode);
+            if (currentCycle) {
+                currentCycle.codeChanges = codeChanges;
+            }
+            return true;
         });
 
-        if (this.runningState.codeChanges.newFiles.length === 0 && 
-            this.runningState.codeChanges.modifiedFiles.length === 0 && 
-            this.runningState.codeChanges.buildFiles.length === 0 &&
-            this.runningState.buildState.compiledSuccessfully && 
-            this.runningState.testResults.testsPassed) {
+        if (currentCycle?.codeChanges.newFiles.length === 0 && 
+            currentCycle?.codeChanges.modifiedFiles.length === 0 && 
+            currentCycle?.codeChanges.buildFiles.length === 0 &&
+            currentCycle?.finalBuildState.compiledSuccessfully && 
+            currentCycle?.finalTestResults.testsPassed) {
             this.runningState.endCurrentCycle();
             this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
             return true;
@@ -169,24 +173,26 @@ class AIPair {
         this.logger.debug('Retrying tests after applying AI-generated code');
         this.runningState.resetCycleState();
 
-        await this.runningState.withPhase(Status.REBUILDING, 'finalBuild', async () => {
-            return await buildProject(this.config, this.runningState, true);
+        await this.runningState.withPhase(Status.REBUILDING, async () => {
+            const result = await buildProject(this.config, currentCycle, true);
+            return result;
         });
 
         // Only run final tests if build succeeded
-        if (this.runningState.currentCycle?.finalBuildState.compiledSuccessfully) {
-            await this.runningState.withPhase(Status.RETESTING, 'finalTest', async () => {
-                await runTests(this.config, this.runningState, true);
+        if (currentCycle?.finalBuildState.compiledSuccessfully) {
+            await this.runningState.withPhase(Status.RETESTING, async () => {
+                await runTests(this.config, currentCycle, true);
+                return true;
             });
         }
 
-        this.logger.debug(`Tests passed: ${this.runningState.currentCycle?.finalTestResults.testsPassed}`);
+        this.logger.debug(`Tests passed: ${currentCycle?.finalTestResults.testsPassed}`);
 
         this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
         this.runningState.endCurrentCycle();
 
-        return this.runningState.currentCycle?.finalBuildState.compiledSuccessfully && 
-               this.runningState.currentCycle?.finalTestResults.testsPassed || false;
+        return currentCycle?.finalBuildState.compiledSuccessfully && 
+               currentCycle?.finalTestResults.testsPassed || false;
     }
 
     async generateCodeWithRetries(prompt: string, systemPrompt: string): Promise<string> {
