@@ -82,4 +82,35 @@ export const formatDuration = (duration: number): string => {
     }
 
     return `${minutes}m ${remainingSeconds}s`;
+};
+
+export const shouldShowInitialTests = (cycle: GenerationCycleDetails): boolean => {
+    return cycle.status >= Status.TESTING || 
+           !cycle.initialBuildState?.compiledSuccessfully || 
+           !cycle.initialTestResults?.testsCompiledSuccessfully ||
+           cycle.initialTestResults?.failedTests.length > 0 || 
+           cycle.initialTestResults?.erroredTests.length > 0;
+};
+
+export const shouldShowValidation = (cycle: GenerationCycleDetails): boolean => {
+    // Show validation section if:
+    // 1. We're already in or past the rebuilding phase, AND
+    // 2. Either the initial tests failed or we were forced to generate changes
+    return cycle.status >= Status.REBUILDING && (
+        cycle.wasForced ||
+        !cycle.initialBuildState?.compiledSuccessfully ||
+        !cycle.initialTestResults?.testsCompiledSuccessfully ||
+        cycle.initialTestResults?.failedTests.length > 0 ||
+        cycle.initialTestResults?.erroredTests.length > 0
+    );
+};
+
+export const shouldShowGeneratingCode = (cycle: GenerationCycleDetails): boolean => {
+    return cycle.status >= Status.GENERATING_CODE && (
+        cycle.wasForced ||
+        !cycle.initialBuildState?.compiledSuccessfully ||
+        !cycle.initialTestResults?.testsCompiledSuccessfully ||
+        cycle.initialTestResults?.failedTests.length > 0 ||
+        cycle.initialTestResults?.erroredTests.length > 0
+    );
 }; 

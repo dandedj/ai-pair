@@ -10,6 +10,7 @@ import { ViewLogsLink } from '../common/ViewLogsLink';
 import { LoadingDots } from '../common/LoadingDots';
 import { getVSCodeAPI } from '../../vscodeApi';
 import { CycleTimings } from 'ai-pair-types';
+import { shouldShowInitialTests, shouldShowValidation, shouldShowGeneratingCode } from './helper/CycleHelper';
 
 interface CycleDetailProps {
     cycle: GenerationCycleDetails;
@@ -47,7 +48,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                         cycleNumber={cycle.cycleNumber}
                         isFinal={false}
                     />
-                    {cycle.initialBuildState?.compiledSuccessfully && cycle.status !== Status.BUILDING && (
+                    {shouldShowInitialTests(cycle) && (
                         <TestResults
                             passedTests={cycle.initialTestResults?.passedTests || []}
                             failedTests={cycle.initialTestResults?.failedTests || []}
@@ -61,7 +62,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                 </div>
             </DetailSection>
 
-            {cycle.status >= Status.GENERATING_CODE && (
+            {shouldShowGeneratingCode(cycle) && (
                 <DetailSection 
                     title="Generating fixes"
                     headerActions={
@@ -125,7 +126,7 @@ export const CycleDetail: React.FC<CycleDetailProps> = ({ cycle }) => {
                 </DetailSection>
             )}
 
-            {cycle.status >= Status.REBUILDING && (
+            {shouldShowValidation(cycle) && (
                 <DetailSection title="Validating">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <BuildState

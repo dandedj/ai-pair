@@ -171,7 +171,6 @@ class AIPair {
         }
 
         this.logger.debug('Retrying tests after applying AI-generated code');
-        this.runningState.resetCycleState();
 
         await this.runningState.withPhase(Status.REBUILDING, async () => {
             const result = await buildProject(this.config, currentCycle, true);
