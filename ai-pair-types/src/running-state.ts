@@ -209,24 +209,6 @@ export class RunningState {
         this.notifyListeners();
     }
 
-    resetCycleState(): void {
-        if (this.currentCycle) {
-            this.currentCycle.finalTestResults = {
-                testsPassed: false,
-                failedTests: [],
-                passedTests: [],
-                erroredTests: [],
-                testOutput: "",
-                testsCompiledSuccessfully: false
-            };
-            this.currentCycle.finalBuildState = {
-                compiledSuccessfully: false,
-                compilerOutput: "",
-            };
-            this.notifyListeners();
-        }
-    }
-
     reset(): void {
         this._generationCycleDetails = [];
         this._accumulatedHints = [];
@@ -262,6 +244,22 @@ export class RunningState {
             }
             console.log(`Finished phase with status: ${Status[status]}`);
         }
+    }
+
+    public toJSON(): any {
+        return {
+            generationCycleDetails: this._generationCycleDetails,
+            accumulatedHints: this._accumulatedHints
+        };
+    }
+
+    public static fromJSON(json: any): RunningState {
+        const state = new RunningState();
+        if (json) {
+            state._generationCycleDetails = json.generationCycleDetails || [];
+            state._accumulatedHints = json.accumulatedHints || [];
+        }
+        return state;
     }
 }
 

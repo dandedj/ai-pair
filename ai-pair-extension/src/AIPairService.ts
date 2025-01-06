@@ -53,7 +53,7 @@ export class AIPairService {
         this._runningState = runningState;
         this._config = config;
         this._logger = ExtensionLogger.getInstance();
-        this._logPath = path.join(config.tmpDir, 'ai-pair.log');
+        this._logPath = path.join(config.tmpDir);
         this._logPanelManager = new LogPanelManager(this._logPath);
 
         this._aiPair = new AIPair(config, runningState);
@@ -110,6 +110,10 @@ export class AIPairService {
 
     public get config(): Config | undefined {
         return this._config;
+    }
+
+    public get extensionContext(): vscode.ExtensionContext {
+        return this._context;
     }
 
     private notifyWebview(webview: vscode.Webview) {

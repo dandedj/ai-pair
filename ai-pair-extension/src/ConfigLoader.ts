@@ -73,7 +73,7 @@ export class ConfigLoader {
             projectRoot,
             srcDir: path.join(projectRoot, 'src'),
             testSourceDir: path.join(projectRoot, 'src', 'test'),
-            testResultsDir: path.join(projectRoot, 'build', 'test-results'),
+            testResultsDir: path.join(projectRoot, 'build', 'test-results/test'),
             promptsPath,
             tmpDir,
             logLevel: this.getConfigValue('logLevel', defaults.logLevel),

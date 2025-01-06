@@ -11,6 +11,7 @@ function constructPrompt(
     runningState: RunningState,
     filesContent: string,
     buildGradleContent: string,
+    buildFilePath: string,
     instructions?: string
 ): string {
     const currentCycle = runningState.currentCycle;
@@ -34,6 +35,7 @@ function constructPrompt(
     let prompt = template
         .replace('{filesContent}', filesContent)
         .replace('{buildGradleContent}', buildGradleContent)
+        .replace('{buildFilePath}', buildFilePath)
         .replace('{testOutput}', failureLog);
 
     // Add instructions if provided

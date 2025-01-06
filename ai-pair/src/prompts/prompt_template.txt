@@ -4,7 +4,7 @@ The following Java / gradle project unit test is failing:
 Here are the current contents of the Java files:
 {filesContent}
 
-Here is the build file contents:
+Here is the {buildFilePath} build file contents:
 {buildGradleContent}
 
 Please provide the updated code for the files that will make the test pass. Only include 

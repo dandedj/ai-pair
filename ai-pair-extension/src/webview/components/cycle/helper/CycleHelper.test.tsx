@@ -23,6 +23,7 @@ function createMockCycle(overrides?: Partial<GenerationCycleDetails>): Generatio
             deletedFiles: [],
             modifiedFiles: [],
             buildFiles: [],
+            testFiles: []
         },
         initialBuildState: {
             compiledSuccessfully: true,
@@ -37,12 +38,16 @@ function createMockCycle(overrides?: Partial<GenerationCycleDetails>): Generatio
             failedTests: [],
             erroredTests: [],
             testsPassed: true,
+            testOutput: '',
+            testsCompiledSuccessfully: true
         },
         finalTestResults: {
             passedTests: [],
             failedTests: [],
             erroredTests: [],
             testsPassed: true,
+            testOutput: '',
+            testsCompiledSuccessfully: true
         },
         timings: {
             cycleStartTime: Date.now(),
@@ -83,6 +88,8 @@ describe('CycleHelper', () => {
                     failedTests: ['test1'],
                     erroredTests: [],
                     testsPassed: false,
+                    testOutput: '',
+                    testsCompiledSuccessfully: true
                 },
             });
             expect(isSuccessful(incompleteCycle)).toBe(false);
@@ -96,6 +103,8 @@ describe('CycleHelper', () => {
                     failedTests: ['test1'],
                     erroredTests: [],
                     testsPassed: false,
+                    testOutput: '',
+                    testsCompiledSuccessfully: true
                 },
             });
             expect(isSuccessful(forcedCycle)).toBe(true);
@@ -109,6 +118,8 @@ describe('CycleHelper', () => {
                     failedTests: ['test1'],
                     erroredTests: [],
                     testsPassed: false,
+                    testOutput: '',
+                    testsCompiledSuccessfully: true
                 },
             });
             expect(isSuccessful(forcedFailedCycle)).toBe(false);
@@ -132,7 +143,9 @@ describe('CycleHelper', () => {
                     passedTests: ['test1'],
                     failedTests: ['test2'],
                     erroredTests: ['test3'],
-                    testsPassed: false
+                    testsPassed: false,
+                    testOutput: '',
+                    testsCompiledSuccessfully: true
                 }
             };
             expect(getTotalTests(cycleWithErrors, 'initial')).toBe(3);
@@ -191,15 +204,20 @@ describe('CycleHelper', () => {
 
     describe('cycle state checks', () => {
         it('correctly identifies cycle completion state', () => {
-            expect(isCycleComplete(mockCycle)).toBe(true);
+            const completedCycle = createMockCycle();
+            expect(isCycleComplete(completedCycle)).toBe(true);
             
-            const incompleteCycle: GenerationCycleDetails = { ...mockCycle, status: Status.BUILDING };
+            const incompleteCycle = createMockCycle({ status: Status.BUILDING });
             expect(isCycleComplete(incompleteCycle)).toBe(false);
+
+            // Test with undefined cycle
+            expect(isCycleComplete(undefined as unknown as GenerationCycleDetails)).toBe(false);
         });
 
         it('correctly identifies build states', () => {
-            expect(isInitialBuildComplete(mockCycle)).toBe(true);
-            expect(isFinalBuildComplete(mockCycle)).toBe(true);
+            const cycleWithBuilds = createMockCycle();
+            expect(isInitialBuildComplete(cycleWithBuilds)).toBe(true);
+            expect(isFinalBuildComplete(cycleWithBuilds)).toBe(true);
 
             const cycleWithoutBuilds = createMockCycle({
                 initialBuildState: undefined,
@@ -207,11 +225,16 @@ describe('CycleHelper', () => {
             });
             expect(isInitialBuildComplete(cycleWithoutBuilds)).toBe(false);
             expect(isFinalBuildComplete(cycleWithoutBuilds)).toBe(false);
+
+            // Test with undefined cycle
+            expect(isInitialBuildComplete(undefined as unknown as GenerationCycleDetails)).toBe(false);
+            expect(isFinalBuildComplete(undefined as unknown as GenerationCycleDetails)).toBe(false);
         });
 
         it('correctly identifies test states', () => {
-            expect(areInitialTestsComplete(mockCycle)).toBe(true);
-            expect(areFinalTestsComplete(mockCycle)).toBe(true);
+            const cycleWithTests = createMockCycle();
+            expect(areInitialTestsComplete(cycleWithTests)).toBe(true);
+            expect(areFinalTestsComplete(cycleWithTests)).toBe(true);
 
             const cycleWithoutTests = createMockCycle({
                 initialTestResults: undefined,
@@ -219,6 +242,10 @@ describe('CycleHelper', () => {
             });
             expect(areInitialTestsComplete(cycleWithoutTests)).toBe(false);
             expect(areFinalTestsComplete(cycleWithoutTests)).toBe(false);
+
+            // Test with undefined cycle
+            expect(areInitialTestsComplete(undefined as unknown as GenerationCycleDetails)).toBe(false);
+            expect(areFinalTestsComplete(undefined as unknown as GenerationCycleDetails)).toBe(false);
         });
     });
 }); 

@@ -47,27 +47,27 @@ const cycleStyles = {
 };
 
 export const Sidebar: React.FC = () => {
-    // Get vscode API using React.useMemo to ensure it's only created once
     const vscodeApi = React.useMemo(() => getVSCodeAPI(), []);
 
     const [runningState, setRunningState] = React.useState<RunningState | null>(() => {
         const state = vscodeApi?.getState();
-        return state?.runningState || null;
+        return state?.runningState || {
+            status: Status.IDLE,
+            accumulatedHints: [],
+            generationCycleDetails: [],
+            testResults: { passedTests: [], failedTests: [], erroredTests: [], testsCompiledSuccessfully: true },
+            buildState: { compiledSuccessfully: true },
+            codeChanges: { lastChangeTime: null, newFiles: [], deletedFiles: [], modifiedFiles: [] }
+        };
     });
     const [config, setConfig] = React.useState<Config | null>(() => {
         const state = vscodeApi?.getState();
         return state?.config || null;
     });
     const [forceGeneration, setForceGeneration] = React.useState(false);
-    const [logs, setLogs] = React.useState<string[]>(() => {
-        const state = vscodeApi?.getState();
-        return state?.logs || [];
-    });
+    const [logs, setLogs] = React.useState<string[]>([]);
     const [isLogExpanded, setIsLogExpanded] = React.useState(false);
-    const [selectedCycle, setSelectedCycle] = React.useState<GenerationCycleDetails | null>(() => {
-        const state = vscodeApi?.getState();
-        return state?.selectedCycle || null;
-    });
+    const [selectedCycle, setSelectedCycle] = React.useState<GenerationCycleDetails | null>(null);
 
     // Update persisted state whenever it changes
     React.useEffect(() => {
@@ -87,17 +87,7 @@ export const Sidebar: React.FC = () => {
 
             switch (message.type) {
                 case 'stateUpdate':
-
-                    setRunningState((prevState: RunningState | null) => {
-                        // Only compare status and essential fields
-                        if (prevState &&
-                            prevState.status === message.state.status &&
-                            prevState.generationCycleDetails.length === message.state.generationCycleDetails.length) {
-                            console.log('Essential state unchanged, skipping update');
-                            return prevState;
-                        }
-                        return message.state;
-                    });
+                    setRunningState(message.state);
                     break;
                 case 'configUpdate':
                     setConfig(message.config);
@@ -115,18 +105,14 @@ export const Sidebar: React.FC = () => {
         // Add event listener
         window.addEventListener('message', handleMessage);
 
-        console.log('Setting up log polling...');
-
-        // Request initial logs
+        // Request initial state
         if (vscodeApi) {
-            console.log('Requesting initial logs...');
-            vscodeApi.postMessage({ type: 'requestLogs' });
+            vscodeApi.postMessage({ type: 'requestState' });
         }
 
         // Set up periodic log updates
         const logInterval = setInterval(() => {
             if (vscodeApi) {
-                // console.log('Polling for logs...');
                 vscodeApi.postMessage({ type: 'requestLogs' });
             }
         }, 500);
@@ -207,7 +193,7 @@ export const Sidebar: React.FC = () => {
                 onStop={handleStop}
             />
 
-            {runningState && runningState.generationCycleDetails.length === 0 ? (
+            {(!runningState || !runningState.generationCycleDetails || runningState.generationCycleDetails.length === 0) ? (
                 <WelcomeComponent
                     onOpenSettings={openSettings}
                     onStart={handleStart}
@@ -284,7 +270,7 @@ export const Sidebar: React.FC = () => {
                         onViewLogs={onViewLogs}
                         config={config || undefined}
                         isExpanded={isLogExpanded}
-                        onToggleExpand={handleToggleLog}
+                        onToggleExpand={() => setIsLogExpanded(!isLogExpanded)}
                     />
                 </>
             )}

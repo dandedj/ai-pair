@@ -253,7 +253,7 @@ interface XmlTestCase {
 
 export function processTestResults(config: Config): TestResults {
     const results: TestResults = {
-        testsPassed: true,
+        testsPassed: false,
         passedTests: [],
         failedTests: [],
         erroredTests: [],

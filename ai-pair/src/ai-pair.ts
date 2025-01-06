@@ -73,19 +73,28 @@ class AIPair {
         clearDirectory(this.config.tmpDir);
 
         while (this.runningState.generationCycleDetails.length < this.config.numRetries) {
-            this.logger.info(`Performing code generation cycle ${this.runningState.generationCycleDetails.length + 1} of ${this.config.numRetries}`);
-            
-            if (this.runningState.generationCycleDetails.length === this.config.numRetries - 1 && this.config.escalateToPremiumModel) {
-                this.logger.info(`Last retry, switching to ${this.config.escalationModel} model`);
+            this.logger.info(
+                `Performing code generation cycle ${
+                    this.runningState.generationCycleDetails.length + 1
+                } of ${this.config.numRetries}`
+            );
+
+            if (
+                this.runningState.generationCycleDetails.length === 
+                    this.config.numRetries - 1 && 
+                this.config.escalateToPremiumModel
+            ) {
+                this.logger.info(
+                    `Last retry, switching to ${this.config.escalationModel} model`
+                );
                 this.config.model = this.config.escalationModel;
                 this.client = this.clientFactory.createClient(this.config);
             }
 
-            const shouldForce = force && this.runningState.generationCycleDetails.length === 1;
-            const success = await this.performCodeGenerationCycle(shouldForce);
-            
+            const success = await this.performCodeGenerationCycle(force);
+
             if (success) {
-                this.logger.info('Code generation successful, tests passing');
+                this.logger.info('Code generation successful, tests passing. Stopping.');
                 break;
             }
         }
@@ -95,28 +104,33 @@ class AIPair {
     }
 
     async performCodeGenerationCycle(force = false): Promise<boolean> {
-        this.runningState.resetCycleState();
-        this.logger.debug(`Starting cycle ${this.runningState.generationCycleDetails.length + 1} with model: ${this.config.model}`);
         const currentCycle = this.runningState.startNewCycle(this.config.model);
 
+        currentCycle.wasForced = force;
+
+        this.logger.debug(
+            `Starting cycle ${
+                this.runningState.generationCycleDetails.length
+            } with model: ${this.config.model}`
+        );
+
         await this.runningState.withPhase(Status.BUILDING, async () => {
-            const result = await buildProject(this.config, currentCycle, false);
-            return result;
+            return await buildProject(this.config, currentCycle, false);
         });
 
         if (currentCycle?.initialBuildState.compiledSuccessfully) {
             await this.runningState.withPhase(Status.TESTING, async () => {
-                const result = await runTests(this.config, currentCycle, false);
-                return result;
+                return await runTests(this.config, currentCycle, false);
             });
-        }
 
-        if (!force && currentCycle?.initialBuildState.compiledSuccessfully && 
-            currentCycle?.initialTestResults.testsPassed) {
-            this.logger.info('Project compiles and all tests passed! No changes needed.');
-            this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
-            this.runningState.endCurrentCycle();
-            return true;
+            if (
+                !force && currentCycle?.initialTestResults.testsPassed
+            ) {
+                this.logger.info('Project compiles and all initial tests passed! No changes needed.');
+                this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
+                this.runningState.endCurrentCycle();
+                return true;
+            }
         }
 
         await this.runningState.withPhase(Status.GENERATING_CODE, async () => {
@@ -124,6 +138,7 @@ class AIPair {
 
             const buildGradlePath = path.join(this.config.projectRoot, 'build.gradle.kts');
             const buildGradleContent = await fs.readFileSync(buildGradlePath, 'utf8');
+            const relativeBuildPath = path.relative(this.config.projectRoot, buildGradlePath);
 
             const codeFiles = await collectFilesWithExtension(
                 [path.join(this.config.projectRoot, 'src/main')],
@@ -147,7 +162,7 @@ class AIPair {
             const cycleDir = path.join(this.config.tmpDir, `generationCycle${this.runningState.generationCycleDetails.length}`);
             fs.mkdirSync(cycleDir, { recursive: true });
 
-            const prompt = constructPrompt(this.config, this.runningState, filesContent, buildGradleContent);
+            const prompt = constructPrompt(this.config, this.runningState, filesContent, buildGradleContent, relativeBuildPath);
             const systemPrompt = this.config.systemPrompt;
 
             this.logger.info(`Sending prompt to AI service : ${this.config.model}`);
@@ -173,25 +188,23 @@ class AIPair {
         this.logger.debug('Retrying tests after applying AI-generated code');
 
         await this.runningState.withPhase(Status.REBUILDING, async () => {
-            const result = await buildProject(this.config, currentCycle, true);
-            return result;
+            return await buildProject(this.config, currentCycle, true);
         });
 
         // Only run final tests if build succeeded
         if (currentCycle?.finalBuildState.compiledSuccessfully) {
             await this.runningState.withPhase(Status.RETESTING, async () => {
-                await runTests(this.config, currentCycle, true);
-                return true;
+                return await runTests(this.config, currentCycle, true);
             });
         }
-
-        this.logger.debug(`Tests passed: ${currentCycle?.finalTestResults.testsPassed}`);
 
         this.runningState.updateCurrentCycleStatus(Status.COMPLETED);
         this.runningState.endCurrentCycle();
 
-        return currentCycle?.finalBuildState.compiledSuccessfully && 
-               currentCycle?.finalTestResults.testsPassed || false;
+        return !!(
+            currentCycle?.finalBuildState.compiledSuccessfully &&
+            currentCycle?.finalTestResults.testsPassed
+        );
     }
 
     async generateCodeWithRetries(prompt: string, systemPrompt: string): Promise<string> {
